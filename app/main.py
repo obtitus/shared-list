@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -14,6 +14,7 @@ class ItemBase(BaseModel):
     name: str
     quantity: int = 1
     completed: bool = False
+    order_index: int = 0
 
 
 class ItemCreate(ItemBase):
@@ -65,7 +66,7 @@ async def get_items():
     """Get all shopping items"""
     with get_db() as conn:
         cursor = conn.execute(
-            "SELECT id, name, quantity, completed FROM items ORDER BY id"
+            "SELECT id, name, quantity, completed, order_index FROM items ORDER BY order_index, id"
         )
         items = [dict(row) for row in cursor.fetchall()]
         return items
@@ -76,7 +77,8 @@ async def get_item(item_id: int):
     """Get a specific shopping item by ID"""
     with get_db() as conn:
         cursor = conn.execute(
-            "SELECT id, name, quantity, completed FROM items WHERE id = ?", (item_id,)
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE id = ?",
+            (item_id,),
         )
         row = cursor.fetchone()
 
@@ -90,16 +92,21 @@ async def get_item(item_id: int):
 async def create_item(item: ItemCreate):
     """Create a new shopping item"""
     with get_db() as conn:
+        # Get the next order_index
+        cursor = conn.execute("SELECT COALESCE(MAX(order_index), 0) + 1 FROM items")
+        next_order = cursor.fetchone()[0]
+
         cursor = conn.execute(
-            "INSERT INTO items (name, quantity, completed) VALUES (?, ?, ?)",
-            (item.name, item.quantity, item.completed),
+            "INSERT INTO items (name, quantity, completed, order_index) VALUES (?, ?, ?, ?)",
+            (item.name, item.quantity, item.completed, next_order),
         )
         conn.commit()
 
         # Get the created item
         new_id = cursor.lastrowid
         cursor = conn.execute(
-            "SELECT id, name, quantity, completed FROM items WHERE id = ?", (new_id,)
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE id = ?",
+            (new_id,),
         )
         new_item = cursor.fetchone()
 
@@ -117,14 +124,15 @@ async def update_item(item_id: int, item: ItemCreate):
 
         # Update the item
         conn.execute(
-            "UPDATE items SET name = ?, quantity = ?, completed = ? WHERE id = ?",
-            (item.name, item.quantity, item.completed, item_id),
+            "UPDATE items SET name = ?, quantity = ?, completed = ?, order_index = ? WHERE id = ?",
+            (item.name, item.quantity, item.completed, item.order_index, item_id),
         )
         conn.commit()
 
         # Return the updated item
         cursor = conn.execute(
-            "SELECT id, name, quantity, completed FROM items WHERE id = ?", (item_id,)
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE id = ?",
+            (item_id,),
         )
         updated_item = cursor.fetchone()
 
@@ -168,6 +176,47 @@ async def toggle_item(item_id: int):
         conn.commit()
 
         return {"id": item_id, "completed": new_status}
+
+
+@app.patch("/items/{item_id}/reorder")
+async def reorder_item(item_id: int, new_order: int = Body(...)):
+    """Reorder a shopping item to a new position"""
+    with get_db() as conn:
+        # Check if item exists
+        cursor = conn.execute(
+            "SELECT id, order_index FROM items WHERE id = ?", (item_id,)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        current_order = row["order_index"]
+
+        if current_order == new_order:
+            return {"message": "Item order unchanged"}
+
+        # Update order indices to make room for the new position
+        if new_order > current_order:
+            # Moving down - shift items up
+            conn.execute(
+                "UPDATE items SET order_index = order_index - 1 WHERE order_index > ? AND order_index <= ?",
+                (current_order, new_order),
+            )
+        else:
+            # Moving up - shift items down
+            conn.execute(
+                "UPDATE items SET order_index = order_index + 1 WHERE order_index >= ? AND order_index < ?",
+                (new_order, current_order),
+            )
+
+        # Update the item's order_index
+        conn.execute(
+            "UPDATE items SET order_index = ? WHERE id = ?",
+            (new_order, item_id),
+        )
+        conn.commit()
+
+        return {"id": item_id, "order_index": new_order}
 
 
 @app.delete("/items")

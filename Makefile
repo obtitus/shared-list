@@ -6,6 +6,7 @@ run:
 # Python testing and linting
 test:
 	$(MAKE) docker-down
+	-pkill -f app/main.py
 	uv run python -m unittest discover tests --failfast
 	$(MAKE) test-playwright
 

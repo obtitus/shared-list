@@ -283,8 +283,15 @@ function renderShoppingList() {
     shoppingList.forEach(item => {
         const listItem = document.createElement('div');
         listItem.className = `list-item ${item.completed ? 'completed' : ''}`;
+        listItem.setAttribute('data-item-id', item.id);
+        listItem.setAttribute('data-order-index', item.order_index || 0);
+        listItem.draggable = true;
 
         listItem.innerHTML = `
+            <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${item.id})" ontouchstart="handleTouchStart(event, ${item.id})" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)" title="Drag to reorder">
+                ⋮⋮
+            </div>
+
             <button class="item-checkbox ${item.completed ? 'checked' : ''}"
                     onclick="handleToggleItem(${item.id})"
                     aria-label="${item.completed ? 'Mark as incomplete' : 'Mark as complete'}">
@@ -405,6 +412,280 @@ function handleKeyboardShortcuts(e) {
 }
 
 /**
+ * Drag and Drop Functionality
+ */
+let draggedItemId = null;
+let draggedElement = null;
+let touchStartY = 0;
+let touchStartX = 0;
+
+/**
+ * Handle drag start event
+ */
+function handleDragStart(event, itemId) {
+    draggedItemId = itemId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/html', event.target.outerHTML);
+
+    // Add visual feedback
+    event.target.closest('.list-item').classList.add('dragging');
+}
+
+/**
+ * Handle drag over event
+ */
+function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+
+    const target = event.target.closest('.list-item');
+    if (!target) return;
+
+    const draggedItem = document.querySelector('.list-item.dragging');
+    if (!draggedItem || draggedItem === target) return;
+
+    // Add visual feedback for drop zones
+    const rect = target.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+
+    // Remove previous drop indicators
+    document.querySelectorAll('.list-item.drop-above, .list-item.drop-below').forEach(item => {
+        item.classList.remove('drop-above', 'drop-below');
+    });
+
+    if (event.clientY < midpoint) {
+        target.classList.add('drop-above');
+    } else {
+        target.classList.add('drop-below');
+    }
+}
+
+/**
+ * Handle drop event
+ */
+async function handleDrop(event) {
+    event.preventDefault();
+
+    if (!draggedItemId || !isOnline) {
+        if (!isOnline) {
+            showToast('Cannot reorder items while offline', 'error');
+        }
+        return;
+    }
+
+    const targetItem = event.target.closest('.list-item');
+    if (!targetItem) return;
+
+    const targetItemId = parseInt(targetItem.getAttribute('data-item-id'));
+    if (targetItemId === draggedItemId) return;
+
+    const draggedItem = document.querySelector('.list-item.dragging');
+    if (!draggedItem) return;
+
+    // Determine new position
+    const rect = targetItem.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertBefore = event.clientY < midpoint;
+
+    // Find target index in current list
+    const targetIndex = shoppingList.findIndex(item => item.id === targetItemId);
+    const draggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
+
+    if (targetIndex === -1 || draggedIndex === -1) return;
+
+    // Calculate new order index
+    let newOrderIndex;
+    if (insertBefore) {
+        newOrderIndex = shoppingList[targetIndex].order_index;
+    } else {
+        newOrderIndex = shoppingList[targetIndex].order_index + 1;
+    }
+
+    // Remove dragged item from current position
+    const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
+
+    // Insert at new position
+    let insertIndex;
+    if (insertBefore) {
+        insertIndex = targetIndex;
+    } else {
+        insertIndex = targetIndex + 1;
+    }
+
+    shoppingList.splice(insertIndex, 0, draggedItemData);
+
+    // Update order indices
+    shoppingList.forEach((item, index) => {
+        item.order_index = index + 1;
+    });
+
+    // Render updated list
+    renderShoppingList();
+
+    // Clear drag state
+    document.querySelectorAll('.list-item.dragging, .list-item.drop-above, .list-item.drop-below').forEach(item => {
+        item.classList.remove('dragging', 'drop-above', 'drop-below');
+    });
+
+    try {
+        // Send reorder request to server
+        await apiRequest(`/items/${draggedItemId}/reorder`, {
+            method: 'PATCH',
+            body: JSON.stringify(newOrderIndex)
+        });
+
+        showToast('Item reordered successfully', 'success');
+    } catch (error) {
+        // Revert on error
+        await loadShoppingList();
+        showToast('Failed to reorder item', 'error');
+        console.error('Reorder item error:', error);
+    }
+
+    draggedItemId = null;
+}
+
+/**
+ * Handle drag end event
+ */
+function handleDragEnd(event) {
+    // Clear all drag-related classes
+    document.querySelectorAll('.list-item.dragging, .list-item.drop-above, .list-item.drop-below').forEach(item => {
+        item.classList.remove('dragging', 'drop-above', 'drop-below');
+    });
+
+    draggedItemId = null;
+}
+
+/**
+ * Handle touch start event (for mobile drag)
+ */
+function handleTouchStart(event, itemId) {
+    draggedItemId = itemId;
+    draggedElement = event.target.closest('.list-item');
+
+    const touch = event.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+
+    // Add visual feedback
+    draggedElement.classList.add('dragging');
+
+    // Prevent scrolling while dragging
+    event.preventDefault();
+}
+
+/**
+ * Handle touch move event (for mobile drag)
+ */
+function handleTouchMove(event) {
+    if (!draggedElement || !draggedItemId) return;
+
+    const touch = event.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartX);
+    const deltaY = Math.abs(touch.clientY - touchStartY);
+
+    // Only start dragging if moved enough (prevent accidental drags)
+    if (deltaX > 10 || deltaY > 10) {
+        // Find the target element under the touch
+        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = targetElement ? targetElement.closest('.list-item') : null;
+
+        // Remove previous drop indicators
+        document.querySelectorAll('.list-item.drop-above, .list-item.drop-below').forEach(item => {
+            item.classList.remove('drop-above', 'drop-below');
+        });
+
+        if (targetItem && targetItem !== draggedElement) {
+            const rect = targetItem.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+
+            if (touch.clientY < midpoint) {
+                targetItem.classList.add('drop-above');
+            } else {
+                targetItem.classList.add('drop-below');
+            }
+        }
+    }
+
+    // Prevent scrolling
+    event.preventDefault();
+}
+
+/**
+ * Handle touch end event (for mobile drag)
+ */
+async function handleTouchEnd(event) {
+    if (!draggedElement || !draggedItemId) return;
+
+    const touch = event.changedTouches[0];
+    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetItem = targetElement ? targetElement.closest('.list-item') : null;
+
+    // Clear visual feedback
+    document.querySelectorAll('.list-item.dragging, .list-item.drop-above, .list-item.drop-below').forEach(item => {
+        item.classList.remove('dragging', 'drop-above', 'drop-below');
+    });
+
+    if (targetItem && targetItem !== draggedElement && isOnline) {
+        const targetItemId = parseInt(targetItem.getAttribute('data-item-id'));
+
+        // Determine insert position
+        const rect = targetItem.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const insertBefore = touch.clientY < midpoint;
+
+        // Find indices in current list
+        const targetIndex = shoppingList.findIndex(item => item.id === targetItemId);
+        const draggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
+
+        if (targetIndex !== -1 && draggedIndex !== -1) {
+            // Calculate new order index
+            let newOrderIndex;
+            if (insertBefore) {
+                newOrderIndex = shoppingList[targetIndex].order_index;
+            } else {
+                newOrderIndex = shoppingList[targetIndex].order_index + 1;
+            }
+
+            // Reorder locally
+            const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
+            let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+            shoppingList.splice(insertIndex, 0, draggedItemData);
+
+            // Update order indices
+            shoppingList.forEach((item, index) => {
+                item.order_index = index + 1;
+            });
+
+            // Render updated list
+            renderShoppingList();
+
+            try {
+                // Send reorder request to server
+                await apiRequest(`/items/${draggedItemId}/reorder`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(newOrderIndex)
+                });
+
+                showToast('Item reordered successfully', 'success');
+            } catch (error) {
+                // Revert on error
+                await loadShoppingList();
+                showToast('Failed to reorder item', 'error');
+                console.error('Reorder item error:', error);
+            }
+        }
+    }
+
+    // Reset drag state
+    draggedItemId = null;
+    draggedElement = null;
+    touchStartX = 0;
+    touchStartY = 0;
+}
+
+/**
  * Utility: Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
@@ -418,6 +699,13 @@ function escapeHtml(text) {
  */
 window.handleToggleItem = handleToggleItem;
 window.handleDeleteItem = handleDeleteItem;
+window.handleDragStart = handleDragStart;
+window.handleDragOver = handleDragOver;
+window.handleDrop = handleDrop;
+window.handleDragEnd = handleDragEnd;
+window.handleTouchStart = handleTouchStart;
+window.handleTouchMove = handleTouchMove;
+window.handleTouchEnd = handleTouchEnd;
 
 // Expose for testing
 window.app = {

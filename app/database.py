@@ -27,7 +27,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 quantity INTEGER DEFAULT 1,
-                completed BOOLEAN DEFAULT 0
+                completed BOOLEAN DEFAULT 0,
+                order_index INTEGER DEFAULT 0
             )
         """
         )
@@ -44,14 +45,14 @@ def create_sample_data():
         # Only create sample data if the database is completely empty
         if count == 0:
             sample_items = [
-                ("Milk", 1, False),
-                ("Bread", 2, False),
-                ("Eggs", 12, False),
-                ("Apples", 6, True),
+                ("Milk", 1, False, 1),
+                ("Bread", 2, False, 2),
+                ("Eggs", 12, False, 3),
+                ("Apples", 6, True, 4),
             ]
 
             conn.executemany(
-                "INSERT INTO items (name, quantity, completed) VALUES (?, ?, ?)",
+                "INSERT INTO items (name, quantity, completed, order_index) VALUES (?, ?, ?, ?)",
                 sample_items,
             )
             conn.commit()
