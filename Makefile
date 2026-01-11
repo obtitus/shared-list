@@ -1,4 +1,7 @@
-.PHONY: test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright
+.PHONY: run test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright
+
+run:
+	uv run app/main.py
 
 # Python testing and linting
 test:

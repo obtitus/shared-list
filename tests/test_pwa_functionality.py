@@ -521,18 +521,18 @@ class TestPWAFeatures(unittest.TestCase):
         )
         self.assertIsNotNone(theme_color, "Theme color meta tag should exist")
         self.assertEqual(
-            theme_color, "#000000", f"Expected theme color #000000, got {theme_color}"
+            theme_color, "#ffffff", f"Expected theme color #ffffff, got {theme_color}"
         )
 
-        # Check that the page has dark theme
+        # Check that the page has light theme
         body_bg = self.page.locator("body").evaluate(
             "el => getComputedStyle(el).backgroundColor"
         )
         self.assertIsNotNone(body_bg, "Body background color should exist")
         body_bg_str = body_bg or ""
         self.assertTrue(
-            "rgb(0, 0, 0)" in body_bg_str or "#000" in body_bg_str,
-            "Body should have dark background",
+            "rgb(255, 255, 255)" in body_bg_str or "#fff" in body_bg_str.lower(),
+            "Body should have light background",
         )
 
     def test_pwa_orientation(self):
