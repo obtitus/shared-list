@@ -4,6 +4,7 @@
  */
 
 // Configuration
+const API_LIST_URL = (id) => `/lists/${id}`;
 const API_BASE_URL = '/items';
 const API_ITEM_URL = (id) => `/items/${id}`;
 const API_TOGGLE_URL = (id) => `/items/${id}/toggle`;
@@ -11,6 +12,7 @@ const API_CLEAR_URL = '/items';
 
 // State Management
 let shoppingList = [];
+let currentList = { id: 1, name: 'Shopping List' };
 let isLoading = false;
 let isOnline = navigator.onLine;
 
@@ -33,6 +35,7 @@ const elements = {
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners();
+    loadListInfo();
     loadShoppingList();
     updateConnectionStatus();
 });
@@ -47,6 +50,12 @@ function initializeEventListeners() {
     // Button actions
     elements.clearBtn.addEventListener('click', handleClearAll);
     elements.refreshBtn.addEventListener('click', handleRefresh);
+
+    // List title editing
+    const listTitleElement = document.querySelector('.list-title');
+    if (listTitleElement) {
+        listTitleElement.addEventListener('click', startListNameEdit);
+    }
 
     // Connection status monitoring
     window.addEventListener('online', () => {
@@ -99,6 +108,110 @@ async function apiRequest(url, options = {}) {
         console.error('API Request failed:', error);
         throw error;
     }
+}
+
+/**
+ * Load List Information from API
+ */
+async function loadListInfo() {
+    if (!isOnline) {
+        updateListTitle();
+        return;
+    }
+
+    try {
+        const listInfo = await apiRequest(API_LIST_URL(currentList.id));
+        currentList = listInfo;
+        updateListTitle();
+    } catch (error) {
+        console.error('Load list info error:', error);
+        // Continue with default list info
+        updateListTitle();
+    }
+}
+
+/**
+ * Update List Title in UI
+ */
+function updateListTitle() {
+    const listTitleElement = document.querySelector('.list-title');
+    if (listTitleElement) {
+        listTitleElement.textContent = currentList.name;
+    }
+
+    // Update page title
+    document.title = `${currentList.name} - Shared Shopping List`;
+}
+
+/**
+ * Start editing the list name
+ */
+function startListNameEdit() {
+    const listTitleElement = document.querySelector('.list-title');
+    if (!listTitleElement || !isOnline) {
+        if (!isOnline) {
+            showToast('Cannot edit list name while offline', 'warning');
+        }
+        return;
+    }
+
+    const currentName = currentList.name;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'list-title-input';
+    input.style.cssText = `
+        font-size: inherit;
+        font-weight: inherit;
+        background: transparent;
+        border: 2px solid var(--accent-blue);
+        border-radius: 4px;
+        padding: 4px 8px;
+        outline: none;
+        color: inherit;
+    `;
+
+    // Replace title with input
+    listTitleElement.textContent = '';
+    listTitleElement.appendChild(input);
+    input.focus();
+    input.select();
+
+    // Handle save/cancel
+    const saveEdit = async () => {
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+            try {
+                await apiRequest(API_LIST_URL(currentList.id), {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: newName })
+                });
+
+                currentList.name = newName;
+                updateListTitle();
+                showToast('List name updated successfully', 'success');
+            } catch (error) {
+                showToast('Failed to update list name', 'error');
+                console.error('Update list name error:', error);
+                updateListTitle(); // Revert to original
+            }
+        } else {
+            updateListTitle(); // Revert to original
+        }
+    };
+
+    const cancelEdit = () => {
+        updateListTitle(); // Revert to original
+    };
+
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            cancelEdit();
+        }
+    });
 }
 
 /**

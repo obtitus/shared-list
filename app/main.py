@@ -10,6 +10,23 @@ from database import get_db, init_db, create_sample_data
 
 
 # Pydantic models
+class ShoppingListBase(BaseModel):
+    name: str
+
+
+class ShoppingListCreate(ShoppingListBase):
+    pass
+
+
+class ShoppingList(ShoppingListBase):
+    id: int
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
 class ItemBase(BaseModel):
     name: str
     quantity: int = 1
@@ -61,12 +78,66 @@ async def api_info():
     return {"message": "Shared Shopping List API"}
 
 
-@app.get("/items", response_model=List[Item])
-async def get_items():
-    """Get all shopping items"""
+@app.get("/lists", response_model=List[ShoppingList])
+async def get_lists():
+    """Get all shopping lists"""
     with get_db() as conn:
         cursor = conn.execute(
-            "SELECT id, name, quantity, completed, order_index FROM items ORDER BY order_index, id"
+            "SELECT id, name, created_at, updated_at FROM lists ORDER BY id"
+        )
+        lists = [dict(row) for row in cursor.fetchall()]
+        return lists
+
+
+@app.get("/lists/{list_id}", response_model=ShoppingList)
+async def get_list(list_id: int):
+    """Get a specific shopping list by ID"""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT id, name, created_at, updated_at FROM lists WHERE id = ?",
+            (list_id,),
+        )
+        row = cursor.fetchone()
+
+        if row is None:
+            raise HTTPException(status_code=404, detail="List not found")
+
+        return dict(row)
+
+
+@app.put("/lists/{list_id}", response_model=ShoppingList)
+async def update_list(list_id: int, list_data: ShoppingListCreate):
+    """Update a shopping list's name"""
+    with get_db() as conn:
+        # Check if list exists
+        cursor = conn.execute("SELECT id FROM lists WHERE id = ?", (list_id,))
+        if cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail="List not found")
+
+        # Update the list
+        conn.execute(
+            "UPDATE lists SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (list_data.name, list_id),
+        )
+        conn.commit()
+
+        # Return the updated list
+        cursor = conn.execute(
+            "SELECT id, name, created_at, updated_at FROM lists WHERE id = ?",
+            (list_id,),
+        )
+        updated_list = cursor.fetchone()
+
+        return dict(updated_list)
+
+
+@app.get("/items", response_model=List[Item])
+async def get_items(list_id: int = 1):
+    """Get all shopping items for a specific list"""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE list_id = ? ORDER BY order_index, id",
+            (list_id,),
         )
         items = [dict(row) for row in cursor.fetchall()]
         return items
@@ -89,16 +160,19 @@ async def get_item(item_id: int):
 
 
 @app.post("/items", response_model=Item, status_code=201)
-async def create_item(item: ItemCreate):
+async def create_item(item: ItemCreate, list_id: int = 1):
     """Create a new shopping item"""
     with get_db() as conn:
-        # Get the next order_index
-        cursor = conn.execute("SELECT COALESCE(MAX(order_index), 0) + 1 FROM items")
+        # Get the next order_index for this list
+        cursor = conn.execute(
+            "SELECT COALESCE(MAX(order_index), 0) + 1 FROM items WHERE list_id = ?",
+            (list_id,),
+        )
         next_order = cursor.fetchone()[0]
 
         cursor = conn.execute(
-            "INSERT INTO items (name, quantity, completed, order_index) VALUES (?, ?, ?, ?)",
-            (item.name, item.quantity, item.completed, next_order),
+            "INSERT INTO items (list_id, name, quantity, completed, order_index) VALUES (?, ?, ?, ?, ?)",
+            (list_id, item.name, item.quantity, item.completed, next_order),
         )
         conn.commit()
 
@@ -182,31 +256,32 @@ async def toggle_item(item_id: int):
 async def reorder_item(item_id: int, new_order: int = Body(...)):
     """Reorder a shopping item to a new position"""
     with get_db() as conn:
-        # Check if item exists
+        # Check if item exists and get its list_id
         cursor = conn.execute(
-            "SELECT id, order_index FROM items WHERE id = ?", (item_id,)
+            "SELECT id, order_index, list_id FROM items WHERE id = ?", (item_id,)
         )
         row = cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Item not found")
 
         current_order = row["order_index"]
+        list_id = row["list_id"]
 
         if current_order == new_order:
             return {"message": "Item order unchanged"}
 
-        # Update order indices to make room for the new position
+        # Update order indices to make room for the new position (within the same list)
         if new_order > current_order:
             # Moving down - shift items up
             conn.execute(
-                "UPDATE items SET order_index = order_index - 1 WHERE order_index > ? AND order_index <= ?",
-                (current_order, new_order),
+                "UPDATE items SET order_index = order_index - 1 WHERE list_id = ? AND order_index > ? AND order_index <= ?",
+                (list_id, current_order, new_order),
             )
         else:
             # Moving up - shift items down
             conn.execute(
-                "UPDATE items SET order_index = order_index + 1 WHERE order_index >= ? AND order_index < ?",
-                (new_order, current_order),
+                "UPDATE items SET order_index = order_index + 1 WHERE list_id = ? AND order_index >= ? AND order_index < ?",
+                (list_id, new_order, current_order),
             )
 
         # Update the item's order_index
@@ -220,10 +295,10 @@ async def reorder_item(item_id: int, new_order: int = Body(...)):
 
 
 @app.delete("/items")
-async def clear_items():
-    """Clear all items from the shopping list"""
+async def clear_items(list_id: int = 1):
+    """Clear all items from a specific shopping list"""
     with get_db() as conn:
-        conn.execute("DELETE FROM items")
+        conn.execute("DELETE FROM items WHERE list_id = ?", (list_id,))
         conn.commit()
 
         return {"message": "All items cleared successfully"}

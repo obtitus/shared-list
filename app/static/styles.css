@@ -272,6 +272,15 @@ body {
     font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-bold);
     letter-spacing: -1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: var(--radius-md);
+    padding: 4px 8px;
+    margin: -4px -8px;
+}
+
+.list-title:hover {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .list-actions {

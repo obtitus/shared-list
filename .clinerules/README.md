@@ -9,7 +9,7 @@
 - Deployment: Use environment variables for PORT and HOST.
 - Always refer to progress.md to see what task is next.
   * Before starting a task, change its status in progress.md to [ ] (In Progress).
-  * Once a task is fully verified, mark it as [x].
+  * Once a task is fully verified by adding relevant tests and running `make lint test`, mark it as [x].
   * If a new requirement pops up, add it to the 'To-Do' list immediately."
 - Always add tests using unittest, ensure lint and tests pass before starting and before moving on.
 - Prefer running commands from the Makefile, if important commands are missing add to 'To-Do'

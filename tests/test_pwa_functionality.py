@@ -75,8 +75,12 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_page_loads_and_renders(self):
         """Test that the PWA loads and renders correctly"""
-        # Check title
-        self.assertEqual(self.page.title(), "Shared Shopping List")
+        # Check title (dynamic based on list name)
+        title = self.page.title()
+        self.assertTrue(
+            "Shared Shopping List" in title,
+            f"Title should contain 'Shared Shopping List', got '{title}'",
+        )
 
         # Check that the main container exists
         self.assertTrue(self.page.locator("#shoppingList").is_visible())

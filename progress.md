@@ -10,7 +10,7 @@
 - [x] Change the CSS theme to white background, black text. Find a more pleasing color than the current green.
 - [x] Remove the strikethrough when items are checked, the checkbox is sufficients
 - [x] Ensure items can be re-arranged by dragging, item order must be syncronized
-- [ ] Make the "Shopping List" name customizable.
+- [x] Make the "Shopping List" name customizable
 - [ ] Ensure two or more instances of the webpage gets updated automatically on changes, use Server-Sent Events (SSE) and force a refresh every hour.
 - [ ] Implement service worker for iOS "Add to Home Screen"
 - [ ] Setup Ultra.cc deployment script

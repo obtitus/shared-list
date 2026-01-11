@@ -6,6 +6,28 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto('http://localhost:8000');
 
+  // Reset list name to default
+  await page.evaluate(async () => {
+    try {
+      const response = await fetch('/lists/1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Shopping List' })
+      });
+      if (response.ok) {
+        // Update local state if it exists
+        if (window.currentList) {
+          window.currentList = { id: 1, name: 'Shopping List' };
+        }
+        document.title = 'Shopping List - Shared Shopping List';
+        const titleEl = document.querySelector('.list-title');
+        if (titleEl) titleEl.textContent = 'Shopping List';
+      }
+    } catch (e) {
+      // Ignore errors during reset
+    }
+  });
+
   // Clear all existing items to start fresh
   if (await page.locator('.list-item').count() > 0) {
     await page.click('#clearBtn');
@@ -15,7 +37,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('Basic PWA Functionality', () => {
   test('should load the PWA correctly', async ({ page }) => {
-    await expect(page).toHaveTitle('Shared Shopping List');
+    await expect(page).toHaveTitle('Shopping List - Shared Shopping List');
 
     // Check main elements are present
     await expect(page.locator('#shoppingList')).toBeAttached();
@@ -126,6 +148,41 @@ test.describe('Basic PWA Functionality', () => {
     const firstItem = page.locator('.list-item').first();
     const isDraggable = await firstItem.getAttribute('draggable');
     expect(isDraggable).toBe('true');
+  });
+
+  test('should allow editing the list name', async ({ page }) => {
+    // Get current list title (whatever it may be)
+    const listTitle = page.locator('.list-title');
+    const originalTitle = await listTitle.textContent();
+
+    // Click on the list title to start editing
+    await listTitle.click();
+
+    // Check that an input field appears
+    const inputField = page.locator('input.list-title-input');
+    await expect(inputField).toBeVisible();
+
+    // Get the current value in the input
+    const currentValue = await inputField.inputValue();
+
+    // Change the list name to something different
+    const newTitle = currentValue === 'Test List' ? 'My Custom List' : 'Test List';
+    await inputField.fill(newTitle);
+    await inputField.press('Enter');
+
+    // Check that the title is updated
+    await expect(listTitle).toHaveText(newTitle);
+
+    // Check that the page title is also updated
+    await expect(page).toHaveTitle(`${newTitle} - Shared Shopping List`);
+
+    // Refresh the page and check persistence
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Check that the list name persists after refresh
+    await expect(page.locator('.list-title')).toHaveText(newTitle);
+    await expect(page).toHaveTitle(`${newTitle} - Shared Shopping List`);
   });
 
   test('should reorder items via drag and drop', async ({ page, isMobile }) => {
