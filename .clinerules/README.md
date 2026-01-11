@@ -5,7 +5,7 @@
   * Frontend: app/static/ (Single Page Application, Vanilla JS).
   * Database: app/data/shopping.db (SQLite).
 - PWA Requirements: manifest.json and Service Worker for iOS "Add to Home Screen".
-- Design Vibe: OLED Dark Mode (#000000 background), minimal borders, high contrast.
+- Design Vibe: OLED light Mode, minimal borders, high contrast.
 - Deployment: Use environment variables for PORT and HOST.
 - Always refer to progress.md to see what task is next.
   * Before starting a task, change its status in progress.md to [ ] (In Progress).

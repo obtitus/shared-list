@@ -1,9 +1,14 @@
-.PHONY: test lint docker-build docker-run docker-up docker-down docker-logs docker-clean
+.PHONY: test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright
 
 # Python testing and linting
 test:
 	$(MAKE) docker-down
 	uv run python -m unittest discover tests --failfast
+	$(MAKE) test-playwright
+
+# TypeScript Playwright testing
+test-playwright:
+	npx playwright test tests/basic-pwa.spec.ts
 
 # stop the build if there are Python syntax errors or undefined names
 # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
