@@ -60,6 +60,10 @@ test.describe('Basic PWA Functionality', () => {
     // Check item is marked as completed
     await expect(item).toHaveClass(/completed/);
 
+    // Verify no strikethrough is applied
+    const textDecoration = await item.locator('.item-name').evaluate(el => getComputedStyle(el).textDecoration);
+    expect(textDecoration).not.toContain('line-through');
+
     // Toggle back
     await page.click('.item-checkbox');
     await expect(item).not.toHaveClass(/completed/);
