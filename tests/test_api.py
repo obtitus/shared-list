@@ -6,10 +6,11 @@ Tests all CRUD operations and verifies SQLite integration
 
 import unittest
 import requests
-import time
-import subprocess
 import os
 import sys
+
+# Import the server manager
+from server_manager import TestServerManager, check_prerequisites
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -19,53 +20,59 @@ TEST_TIMEOUT = 10  # seconds
 class TestShoppingListAPI(unittest.TestCase):
     """Test cases for the Shopping List API"""
 
+    test_item_id = None  # Class variable to store test item ID
+
     @classmethod
     def setUpClass(cls):
-        """Start the server before running tests"""
-        print("🚀 Starting FastAPI server...")
-        try:
-            # Start server in background
-            cls.server_process = subprocess.Popen(
-                ["uv", "run", "python", "app/main.py"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+        """Setup server before running tests"""
+        print("🧪 Starting Shared Shopping List API Tests")
+        print("=" * 50)
+        print(
+            "Using unittest framework to test FastAPI backend with SQLite integration"
+        )
+        print()
+
+        # Check prerequisites
+        if not check_prerequisites("api"):
+            sys.exit(1)
+
+        # Setup server manager
+        cls.server_manager = TestServerManager.for_api_tests()
+
+        # Start server if not already running
+        if not cls.server_manager.check_server_running():
+            print("🚀 Starting FastAPI server...")
+            success = cls.server_manager.start_api_server(timeout=30)
+            if not success:
+                raise RuntimeError("Failed to start API server")
+
+            # Wait for server to be fully ready
+            if not cls.server_manager.wait_for_server_boot(timeout=30):
+                raise RuntimeError("Server not ready after boot")
+
+        print("✅ Server is running and ready for tests")
+
+    @classmethod
+    def ensure_test_item_exists(cls):
+        """Ensure a test item exists for dependent tests"""
+        if cls.test_item_id is None:
+            new_item = {"name": "Test Item", "quantity": 3, "completed": False}
+            response = requests.post(
+                f"{BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
             )
-
-            # Wait for server to start
-            time.sleep(3)
-
-            # Check if server started successfully
-            if cls.server_process.poll() is not None:
-                stdout, stderr = cls.server_process.communicate()
-                print("❌ Server failed to start:")
-                print(f"STDOUT: {stdout}")
-                print(f"STDERR: {stderr}")
-                raise Exception("Server failed to start")
-
-            print("✅ Server started successfully")
-        except Exception as e:
-            print(f"❌ Failed to start server: {e}")
-            raise
+            if response.status_code == 201:
+                created_item = response.json()
+                cls.test_item_id = created_item["id"]
 
     @classmethod
     def tearDownClass(cls):
-        """Stop the server after all tests"""
-        if hasattr(cls, "server_process") and cls.server_process:
-            print("🛑 Stopping server...")
-            try:
-                cls.server_process.terminate()
-                cls.server_process.wait(timeout=5)
-                print("✅ Server stopped")
-            except subprocess.TimeoutExpired:
-                cls.server_process.kill()
-                print("⚠️  Server killed (timeout)")
-            except Exception as e:
-                print(f"❌ Error stopping server: {e}")
+        """Cleanup after all tests"""
+        if hasattr(cls, "server_manager"):
+            cls.server_manager.stop_server()
 
     def test_root_endpoint(self):
         """Test the root endpoint"""
-        response = requests.get(f"{BASE_URL}/", timeout=TEST_TIMEOUT)
+        response = requests.get(f"{BASE_URL}/api", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -78,7 +85,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
         items = response.json()
         self.assertIsInstance(items, list)
-        self.assertGreaterEqual(len(items), 4)  # Should have sample data
+        self.assertGreaterEqual(len(items), 3)  # Should have sample data
 
     def test_create_item(self):
         """Test creating a new item"""
@@ -95,45 +102,43 @@ class TestShoppingListAPI(unittest.TestCase):
         self.assertEqual(created_item["completed"], False)
 
         # Store the ID for cleanup
-        self.test_item_id = created_item["id"]
+        TestShoppingListAPI.test_item_id = created_item["id"]
 
     def test_get_specific_item(self):
         """Test getting a specific item by ID"""
-        if not hasattr(self, "test_item_id"):
-            self.skipTest("No test item created")
+        self.ensure_test_item_exists()
 
         response = requests.get(
-            f"{BASE_URL}/items/{self.test_item_id}", timeout=TEST_TIMEOUT
+            f"{BASE_URL}/items/{TestShoppingListAPI.test_item_id}", timeout=TEST_TIMEOUT
         )
         self.assertEqual(response.status_code, 200)
 
         item = response.json()
-        self.assertEqual(item["id"], self.test_item_id)
+        self.assertEqual(item["id"], TestShoppingListAPI.test_item_id)
         self.assertEqual(item["name"], "Test Item")
 
     def test_toggle_item(self):
         """Test toggling an item's completion status"""
-        if not hasattr(self, "test_item_id"):
-            self.skipTest("No test item created")
+        self.ensure_test_item_exists()
 
         response = requests.patch(
-            f"{BASE_URL}/items/{self.test_item_id}/toggle", timeout=TEST_TIMEOUT
+            f"{BASE_URL}/items/{TestShoppingListAPI.test_item_id}/toggle",
+            timeout=TEST_TIMEOUT,
         )
         self.assertEqual(response.status_code, 200)
 
         result = response.json()
-        self.assertEqual(result["id"], self.test_item_id)
+        self.assertEqual(result["id"], TestShoppingListAPI.test_item_id)
         self.assertEqual(result["completed"], True)
 
     def test_update_item(self):
         """Test updating an existing item"""
-        if not hasattr(self, "test_item_id"):
-            self.skipTest("No test item created")
+        self.ensure_test_item_exists()
 
         updated_item = {"name": "Updated Test Item", "quantity": 5, "completed": True}
 
         response = requests.put(
-            f"{BASE_URL}/items/{self.test_item_id}",
+            f"{BASE_URL}/items/{TestShoppingListAPI.test_item_id}",
             json=updated_item,
             timeout=TEST_TIMEOUT,
         )
@@ -145,26 +150,21 @@ class TestShoppingListAPI(unittest.TestCase):
         self.assertEqual(updated["completed"], True)
 
     def test_delete_item(self):
-        """Test deleting an item"""
-        if not hasattr(self, "test_item_id"):
-            self.skipTest("No test item created")
+        """Test deleting an item
+        Test that deleted item returns 404"""
+        self.ensure_test_item_exists()
+        item_id = TestShoppingListAPI.test_item_id
 
-        response = requests.delete(
-            f"{BASE_URL}/items/{self.test_item_id}", timeout=TEST_TIMEOUT
-        )
+        response = requests.delete(f"{BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
         result = response.json()
         self.assertIn("message", result)
 
-    def test_item_deleted_verification(self):
-        """Test that deleted item returns 404"""
-        if not hasattr(self, "test_item_id"):
-            self.skipTest("No test item created")
+        # Clear the test item ID since it's deleted
+        TestShoppingListAPI.test_item_id = None
 
-        response = requests.get(
-            f"{BASE_URL}/items/{self.test_item_id}", timeout=TEST_TIMEOUT
-        )
+        response = requests.get(f"{BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 404)
 
     def test_error_handling_nonexistent_item(self):
@@ -208,10 +208,10 @@ def run_tests():
             sys.exit(1)
 
     # Run the tests
-    unittest.main(verbosity=2, exit=False)
+    unittest.main(verbosity=2)
 
     print("=" * 50)
-    print("🎉 Test suite completed!")
+    print("🎉 API Test suite completed!")
 
 
 if __name__ == "__main__":

@@ -11,3 +11,6 @@ wheels/
 
 # Data
 app/data/*.db
+
+# Playwright files
+node_modules/

@@ -47,3 +47,6 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# playwright
+node_modules/

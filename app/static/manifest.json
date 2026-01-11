@@ -1,0 +1,53 @@
+{
+  "name": "Shared Shopping List",
+  "short_name": "Shared List",
+  "description": "A shared shopping list PWA with OLED-optimized dark theme for optimal visibility in any lighting condition",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "categories": [
+    "productivity",
+    "utilities",
+    "shopping"
+  ],
+  "lang": "en",
+  "dir": "ltr",
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Add Item",
+      "short_name": "Add Item",
+      "description": "Quickly add a new item to your shopping list",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/static/icons/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "View List",
+      "short_name": "View List",
+      "description": "View your current shopping list",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/static/icons/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "edge_side_panel": {
+    "preferred_width": 480
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
+}

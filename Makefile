@@ -2,7 +2,8 @@
 
 # Python testing and linting
 test:
-	uv run python -m unittest discover .
+	$(MAKE) docker-down
+	uv run python -m unittest discover tests --failfast
 
 # stop the build if there are Python syntax errors or undefined names
 # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
@@ -14,6 +15,7 @@ lint:
 # if docker is not running: systemctl --user start docker.service
 docker-build:
 	docker compose build
+	docker buildx history logs
 
 docker-up:
 	docker compose up -d
@@ -34,4 +36,3 @@ docker-run:
 	@echo "Container started. API available at http://localhost:8000"
 	@echo "To view logs: make docker-logs"
 	@echo "To stop: make docker-down"
-

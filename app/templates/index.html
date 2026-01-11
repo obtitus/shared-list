@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Shared List">
+    <meta name="description" content="A shared shopping list PWA with OLED-optimized dark theme">
+
+    <title>Shared Shopping List</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/static/styles.css" as="style">
+    <link rel="preload" href="/static/app.js" as="script">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/static/icons/icon-72x72.png">
+
+    <!-- iOS specific meta tags -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-startup-image" href="/static/icons/splash-640x1136.png">
+
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">🛒 Shared List</h1>
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Online</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Add Item Form -->
+            <section class="add-item-section">
+                <form class="add-item-form" id="addItemForm">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            id="itemName"
+                            placeholder="Add item..."
+                            class="item-input"
+                            autocomplete="off"
+                            required
+                        >
+                        <input
+                            type="number"
+                            id="itemQuantity"
+                            placeholder="Qty"
+                            class="quantity-input"
+                            min="1"
+                            value="1"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="add-btn">➕ Add</button>
+                </form>
+            </section>
+
+            <!-- Shopping List -->
+            <section class="shopping-list-section">
+                <div class="list-header">
+                    <h2 class="list-title">Shopping List</h2>
+                    <div class="list-actions">
+                        <button class="clear-btn" id="clearBtn">🗑️ Clear All</button>
+                        <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <div class="list-container">
+                    <div id="shoppingList" class="shopping-list">
+                        <!-- Items will be rendered here -->
+                    </div>
+
+                    <div id="emptyState" class="empty-state" style="display: none;">
+                        <div class="empty-icon">📋</div>
+                        <p class="empty-text">Your shopping list is empty</p>
+                        <p class="empty-subtext">Add items above to get started</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p class="footer-text">Shared Shopping List PWA</p>
+            <p class="footer-version">v1.0.0</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading...</p>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

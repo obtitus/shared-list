@@ -41,6 +41,7 @@ def create_sample_data():
         cursor = conn.execute("SELECT COUNT(*) FROM items")
         count = cursor.fetchone()[0]
 
+        # Only create sample data if the database is completely empty
         if count == 0:
             sample_items = [
                 ("Milk", 1, False),
@@ -54,3 +55,10 @@ def create_sample_data():
                 sample_items,
             )
             conn.commit()
+
+
+def reset_database():
+    """Reset the database by clearing all items"""
+    with get_db() as conn:
+        conn.execute("DELETE FROM items")
+        conn.commit()

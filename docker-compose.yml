@@ -16,6 +16,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - PYTHONPATH=/code
+      - UV_NO_DEV=1
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]

@@ -20,4 +20,5 @@ packages = ["app"]
 dev = [
     "flake8>=7.3.0",
     "requests>=2.32.5",
+    "playwright>=1.57.0",
 ]

@@ -1,6 +1,10 @@
 from typing import List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+import os
 
 from database import get_db, init_db, create_sample_data
 
@@ -30,6 +34,12 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Templates (for potential future use)
+templates = Jinja2Templates(directory="app/templates")
+
 
 @app.on_event("startup")
 def startup_event():
@@ -38,9 +48,15 @@ def startup_event():
     create_sample_data()
 
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend(request: Request):
+    """Serve the PWA frontend"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api", response_model=dict)
+async def api_info():
+    """API information endpoint for testing"""
     return {"message": "Shared Shopping List API"}
 
 
@@ -164,9 +180,16 @@ async def clear_items():
         return {"message": "All items cleared successfully"}
 
 
+@app.get("/static/sw.js")
+async def get_service_worker():
+    """Serve the service worker with proper headers"""
+    response = FileResponse("app/static/sw.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+
 if __name__ == "__main__":
     import uvicorn
-    import os
 
     # Get host and port from environment variables or use defaults
     host = os.getenv("HOST", "0.0.0.0")
