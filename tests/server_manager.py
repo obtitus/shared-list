@@ -181,6 +181,18 @@ class ServerManager:
                 logging.info("✅ Docker server stopped")
                 self.server_docker_started = False
 
+            # Verify server is actually down by checking if port is free
+            start_time = time.time()
+            while time.time() - start_time < 30:
+                if not self.check_server_running(timeout=1):
+                    logging.info("✅ Server confirmed down")
+                    break
+                time.sleep(1)
+            else:
+                logging.warning(
+                    "⚠️ Server still appears to be running after stop attempt"
+                )
+
         except Exception as e:
             logging.error(f"❌ Error stopping server: {e}")
         finally:

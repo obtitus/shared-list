@@ -7,11 +7,12 @@ run:
 test:
 	$(MAKE) docker-down
 	-pkill -f app/main.py
-	uv run python -m unittest discover tests --failfast | tee unittest_output.tmp
+	uv run python -m unittest discover tests --failfast 2>&1 | tee unittest.log
 	$(MAKE) test-playwright
 	@echo "=== Unittest Summary ==="
-	@tail -3 unittest_output.tmp
-	@rm unittest_output.tmp
+	@grep -A 2 "^Ran " unittest.log || echo "Could not find unittest summary"
+
+
 
 # TypeScript Playwright testing
 test-playwright:

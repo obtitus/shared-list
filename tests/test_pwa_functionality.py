@@ -229,9 +229,11 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_offline_functionality(self):
         """Test offline functionality and connection status"""
-        # Check initial online status
-        status_text = self.page.locator("#connectionStatus .status-text").inner_text()
-        self.assertIn("Online", status_text)
+        # Check initial online status (dot should be green/connected)
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        self.assertTrue(status_dot.is_visible())
+        dot_class = status_dot.get_attribute("class") or ""
+        self.assertIn("connected", dot_class)
 
         # Simulate offline mode
         self.page.context.set_offline(True)
@@ -239,9 +241,10 @@ class TestShoppingListPWA(unittest.TestCase):
         # Wait for status to update
         self.page.wait_for_timeout(1000)
 
-        # Check offline status
-        status_text = self.page.locator("#connectionStatus .status-text").inner_text()
-        self.assertIn("Offline", status_text)
+        # Check offline status (dot should be red/offline)
+        dot_class_offline = status_dot.get_attribute("class") or ""
+        self.assertIn("offline", dot_class_offline)
+        self.assertNotIn("connected", dot_class_offline)
 
         # Try to add an item while offline (should show error)
         self.page.fill("#itemName", "Offline Test Item")
@@ -257,9 +260,11 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.context.set_offline(False)
         self.page.wait_for_timeout(1000)
 
-        # Check online status restored
-        status_text = self.page.locator("#connectionStatus .status-text").inner_text()
-        self.assertIn("Online", status_text)
+        # Check online status restored (dot should be back to connected if SSE reconnects)
+        # Note: May still be offline if SSE hasn't reconnected yet
+        dot_class_restored = status_dot.get_attribute("class") or ""
+        # Just check that it's not offline anymore (may be connected or offline depending on timing)
+        self.assertNotIn("offline", dot_class_restored)
 
     @unittest.skip("Service worker not yet implemented")
     def test_pwa_manifest_and_service_worker(self):

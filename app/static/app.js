@@ -15,6 +15,7 @@ let shoppingList = [];
 let currentList = { id: 1, name: 'Shopping List' };
 let isLoading = false;
 let isOnline = navigator.onLine;
+let isRealTimeConnected = false;
 let eventSource = null;
 let hourlyRefreshTimer = null;
 let clientId = null;
@@ -28,7 +29,6 @@ const elements = {
     itemQuantityInput: document.getElementById('itemQuantity'),
     connectionStatus: document.getElementById('connectionStatus'),
     statusDot: document.querySelector('.status-dot'),
-    statusText: document.querySelector('.status-text'),
     clearBtn: document.getElementById('clearBtn'),
     refreshBtn: document.getElementById('refreshBtn'),
     toastContainer: document.getElementById('toastContainer'),
@@ -470,14 +470,13 @@ function updateEmptyState() {
 function updateConnectionStatus() {
     isOnline = navigator.onLine;
 
-    if (isOnline) {
-        elements.statusDot.classList.remove('offline');
-        elements.statusText.textContent = 'Online';
-        elements.statusText.style.color = '#ffffff';
-    } else {
+    elements.statusDot.classList.remove('offline', 'connected');
+    if (!isOnline || !isRealTimeConnected) {
         elements.statusDot.classList.add('offline');
-        elements.statusText.textContent = 'Offline';
-        elements.statusText.style.color = '#ff4444';
+        console.log(!isOnline ? 'Offline' : 'Online (no real-time connection)');
+    } else {
+        elements.statusDot.classList.add('connected');
+        console.log('Online and real-time connected');
     }
 }
 
@@ -833,7 +832,8 @@ function connectToSSE() {
 
         eventSource.onopen = () => {
             console.log('SSE connection established');
-            showToast('Connected to real-time updates', 'success');
+            isRealTimeConnected = true;
+            updateConnectionStatus();
         };
 
         eventSource.onmessage = (event) => {
@@ -847,7 +847,8 @@ function connectToSSE() {
 
         eventSource.onerror = (error) => {
             console.error('SSE connection error:', error);
-            showToast('Real-time updates connection lost', 'warning');
+            isRealTimeConnected = false;
+            updateConnectionStatus();
 
             // Close and cleanup
             if (eventSource) {

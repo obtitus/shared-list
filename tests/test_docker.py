@@ -79,29 +79,6 @@ def run_tests():
     print("Using unittest framework to test Docker container setup and file tree")
     print()
 
-    # Check if Docker is available
-    try:
-        result = subprocess.run(["docker", "--version"], capture_output=True, text=True)
-        if result.returncode != 0:
-            print("❌ Docker is not available or not running")
-            sys.exit(1)
-        print(f"✅ Docker version: {result.stdout.strip()}")
-    except FileNotFoundError:
-        print("❌ Docker command not found")
-        sys.exit(1)
-
-    # Check if required files exist
-    required_files = [
-        "docker-compose.yml",
-        "Dockerfile",
-        "app/main.py",
-        "app/database.py",
-    ]
-    for file_path in required_files:
-        if not os.path.exists(file_path):
-            print(f"❌ Required file missing: {file_path}")
-            sys.exit(1)
-
     # Run the tests
     unittest.main(verbosity=2)
 

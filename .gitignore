@@ -17,4 +17,4 @@ node_modules/
 test-results/
 
 #
-unittest_output.tmp
+unittest.log

@@ -153,6 +153,7 @@ test.describe('Basic PWA Functionality', () => {
       await page.fill('#itemName', `Drag Test Item ${i}`);
       await page.fill('#itemQuantity', '1');
       await page.click('.add-btn');
+      await page.waitForSelector('#loadingOverlay', { state: 'hidden' });
       await page.waitForTimeout(200);
     }
 
