@@ -150,10 +150,25 @@ class ServerManager:
         logging.info("🛑 Stopping server...")
         try:
             if self.server_process is not None:
+                # First try graceful shutdown
                 self.server_process.terminate()
-                self.server_process.wait(timeout=5)
 
-                logging.info("✅ API server stopped")
+                try:
+                    self.server_process.wait(timeout=10)  # Increased timeout
+                    logging.info("✅ API server stopped gracefully")
+                except subprocess.TimeoutExpired:
+                    logging.warning(
+                        "⚠️  Server didn't stop gracefully, force killing..."
+                    )
+                    if self.server_process and self.server_process.pid:
+                        try:
+                            os.killpg(
+                                os.getpgid(self.server_process.pid), signal.SIGKILL
+                            )
+                            self.server_process.wait(timeout=5)
+                            logging.info("✅ API server force killed")
+                        except (OSError, subprocess.TimeoutExpired) as e:
+                            logging.error(f"❌ Failed to kill server process: {e}")
 
             if self.server_docker_started:
                 # For Docker, use docker compose down
@@ -166,15 +181,9 @@ class ServerManager:
                 logging.info("✅ Docker server stopped")
                 self.server_docker_started = False
 
-        except subprocess.TimeoutExpired:
-            if self.server_process and self.server_process.pid:
-                os.killpg(os.getpgid(self.server_process.pid), signal.SIGKILL)
-                logging.warning("⚠️  Server killed (timeout)")
         except Exception as e:
             logging.error(f"❌ Error stopping server: {e}")
         finally:
-            if self.server_process is not None:
-                self.server_process.terminate()
             self.server_process = None
 
     def _cleanup_docker_containers(self):

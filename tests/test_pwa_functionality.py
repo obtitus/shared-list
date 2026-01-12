@@ -15,63 +15,63 @@ class TestShoppingListPWA(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Setup server before running tests"""
-        print("🧪 Starting Shared Shopping List API Tests")
-        print("=" * 50)
-        print(
-            "Using unittest framework to test FastAPI backend with SQLite integration"
-        )
-        print()
+        """Setup Docker environment before running tests"""
+        print("🐳 Starting Docker setup tests...")
 
         # Check prerequisites
-        if not check_prerequisites("api"):
+        if not check_prerequisites("docker"):
             sys.exit(1)
 
         # Setup server manager
-        cls.server_manager = TestServerManager.for_api_tests()
+        cls.server_manager = TestServerManager.for_docker_tests()
 
-        # Start server if not already running
+        # Start Docker container if not already running
         if not cls.server_manager.check_server_running():
-            print("🚀 Starting FastAPI server...")
-            success = cls.server_manager.start_api_server(timeout=30)
+            print("🐳 Starting Docker container...")
+            success = cls.server_manager.start_docker_server(timeout=120)
             if not success:
-                raise RuntimeError("Failed to start API server")
+                raise RuntimeError("Failed to start Docker container")
 
             # Wait for server to be fully ready
-            if not cls.server_manager.wait_for_server_boot(timeout=30):
-                raise RuntimeError("Server not ready after boot")
+            if not cls.server_manager.wait_for_server_boot(timeout=60):
+                raise RuntimeError("Docker container not ready after boot")
 
-        print("✅ Server is running and ready for tests")
+        print("✅ Docker container is running and ready for tests")
+
         # Initialize Playwright
         cls.playwright = sync_playwright().start()
         cls.browser = cls.playwright.chromium.launch(headless=True)
         cls.context = cls.browser.new_context()
-        cls.page = cls.context.new_page()
 
     @classmethod
     def tearDownClass(cls):
         """Cleanup for the test class"""
-        if hasattr(cls, "page") and cls.page:
-            cls.page.close()
         if hasattr(cls, "browser") and cls.browser:
             cls.browser.close()
         if hasattr(cls, "playwright") and cls.playwright:
             cls.playwright.stop()
         if hasattr(cls, "server_manager") and cls.server_manager:
-            print("🛑 Stopping server...")
+            print("🛑 tearDown Stopping server...")
             cls.server_manager.stop_server()
 
     def setUp(self):
         """Setup for each test"""
+        # Navigate to the PWA
+        self.page = self.context.new_page()
+        self.page.goto("http://localhost:8000")
         # Setup browser error capture
         self.browser_errors = capture_browser_errors(self.page, self.context)
 
-        # Navigate to the PWA
-        self.page.goto("http://localhost:8000")
-        self.page.wait_for_load_state("networkidle")
-
-        # Wait for the app to initialize
+        # Don't wait for networkidle since SSE keeps connection open
+        # Just wait for the app to initialize
         self.page.wait_for_selector("#shoppingList", state="attached", timeout=10000)
+
+    def tearDown(self):
+        """Cleanup after each test"""
+        # Close the page to ensure SSE connections are terminated
+        self.page.close()
+        if hasattr(self, "browser_errors") and self.browser_errors:
+            self.browser_errors.clear_errors()
 
     def test_page_loads_and_renders(self):
         """Test that the PWA loads and renders correctly"""
@@ -108,6 +108,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Wait for the item to appear
         self.page.wait_for_timeout(1000)
+        assert_no_errors(self.browser_errors, "test_page_loads_and_renders")
 
         # Check that the item was added
         new_count = len(self.page.locator(".list-item").all())
@@ -135,54 +136,44 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_toggle_item_completion(self):
         """Test toggling item completion status"""
-        # Add an item first
-        self.page.fill("#itemName", "Toggle Test Item")
+        # Add an item first with a unique identifier
+        unique_name = f"Toggle Test Item {self.page.evaluate('Date.now()')}"
+        self.page.fill("#itemName", unique_name)
         self.page.fill("#itemQuantity", "1")
         self.page.click(".add-btn")
         self.page.wait_for_selector(".list-item", timeout=5000)
 
-        # Find the item
-        item = self.page.locator(".list-item:last-child")
+        # Find the item by its unique name
+        item = self.page.locator(f'.list-item:has-text("{unique_name}")')
 
         # Check initial state (not completed)
         item_class = item.get_attribute("class") or ""
-        checkbox_class = (
-            self.page.locator(".list-item:last-child .item-checkbox").get_attribute(
-                "class"
-            )
-            or ""
-        )
+        checkbox_class = item.locator(".item-checkbox").get_attribute("class") or ""
         self.assertNotIn("completed", item_class)
         self.assertNotIn("checked", checkbox_class)
 
         # Toggle the item
         item.locator(".item-checkbox").click()
 
-        # Wait for the state to change
-        self.page.wait_for_timeout(500)
+        # Wait for the state to change and DOM to stabilize
+        self.page.wait_for_timeout(1000)
 
         # Check that the item is now completed
         item_class_after_toggle = item.get_attribute("class") or ""
         checkbox_class_after_toggle = (
-            self.page.locator(".list-item:last-child .item-checkbox").get_attribute(
-                "class"
-            )
-            or ""
+            item.locator(".item-checkbox").get_attribute("class") or ""
         )
         self.assertIn("completed", item_class_after_toggle)
         self.assertIn("checked", checkbox_class_after_toggle)
 
         # Toggle back
         item.locator(".item-checkbox").click()
-        self.page.wait_for_timeout(500)
+        self.page.wait_for_timeout(1000)
 
         # Check that the item is not completed
         item_class_after_toggle_back = item.get_attribute("class") or ""
         checkbox_class_after_toggle_back = (
-            self.page.locator(".list-item:last-child .item-checkbox").get_attribute(
-                "class"
-            )
-            or ""
+            item.locator(".item-checkbox").get_attribute("class") or ""
         )
         self.assertNotIn("completed", item_class_after_toggle_back)
         self.assertNotIn("checked", checkbox_class_after_toggle_back)
@@ -376,9 +367,13 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.fill("#itemQuantity", "1")
         self.page.click(".add-btn")
 
-        # Wait for success toast
-        self.page.wait_for_selector(".toast.success", timeout=5000)
-        success_toast = self.page.locator(".toast.success")
+        # Wait for the item-added success toast (not the SSE connection toast)
+        self.page.wait_for_selector(
+            '.toast.success:has-text("Item added successfully")', timeout=5000
+        )
+        success_toast = self.page.locator(
+            '.toast.success:has-text("Item added successfully")'
+        )
         self.assertTrue(success_toast.is_visible())
 
         # Check that the toast disappears after a few seconds
@@ -436,66 +431,6 @@ class TestShoppingListPWA(unittest.TestCase):
         self.assertGreaterEqual(
             quantity_height, 40, "Quantity input should be large enough for mobile"
         )
-
-
-class TestPWAFeatures(unittest.TestCase):
-    """Test PWA-specific features"""
-
-    @classmethod
-    def setUpClass(cls):
-        """Setup for the test class"""
-        print("🚀 Starting FastAPI server for PWA tests...")
-        try:
-            # Setup server manager
-            cls.server_manager = TestServerManager.for_pwa_tests()
-
-            # Start server if not already running
-            if not cls.server_manager.check_server_running():
-                print("🚀 Starting FastAPI server...")
-                success = cls.server_manager.start_api_server(timeout=30)
-                if not success:
-                    raise RuntimeError("Failed to start API server")
-
-                # Wait for server to be fully ready
-                if not cls.server_manager.wait_for_server_boot(timeout=30):
-                    raise RuntimeError("Server not ready after boot")
-
-            print("✅ Server is running and ready for tests")
-
-            # Initialize Playwright
-            cls.playwright = sync_playwright().start()
-            cls.browser = cls.playwright.chromium.launch(headless=True)
-            cls.context = cls.browser.new_context()
-            cls.page = cls.context.new_page()
-
-        except Exception as e:
-            print(f"❌ Failed to setup tests: {e}")
-            cls.tearDownClass()
-            raise
-
-    @classmethod
-    def tearDownClass(cls):
-        """Cleanup for the test class"""
-        if hasattr(cls, "page") and cls.page:
-            cls.page.close()
-        if hasattr(cls, "browser") and cls.browser:
-            cls.browser.close()
-        if hasattr(cls, "playwright") and cls.playwright:
-            cls.playwright.stop()
-        if hasattr(cls, "server_manager"):
-            cls.server_manager.stop_server()
-
-    def setUp(self):
-        """Setup for each test"""
-        # Setup browser error capture
-        self.browser_errors = capture_browser_errors(self.page, self.context)
-
-        # Navigate to the PWA
-        self.page.goto("http://localhost:8000")
-        self.page.wait_for_load_state("networkidle")
-
-        # Wait for the app to initialize
-        self.page.wait_for_selector("#shoppingList", state="attached", timeout=10000)
 
     def test_add_to_home_screen_prompt(self):
         """Test Add to Home Screen functionality"""
@@ -564,6 +499,78 @@ class TestPWAFeatures(unittest.TestCase):
         except Exception:
             # Orientation lock might not be supported in all environments
             pass
+
+    def test_real_time_updates(self):
+        """Test real-time updates between multiple browser instances using SSE"""
+        # Create two separate pages to simulate different users/devices
+        page1 = self.context.new_page()
+        page2 = self.context.new_page()
+
+        # Setup error capture for both pages
+        errors1 = capture_browser_errors(page1, self.context)
+        errors2 = capture_browser_errors(page2, self.context)
+
+        try:
+            # Navigate both pages to the app
+            page1.goto("http://localhost:8000")
+            page2.goto("http://localhost:8000")
+
+            # Wait for both apps to initialize
+            page1.wait_for_selector("#shoppingList", state="attached", timeout=10000)
+            page2.wait_for_selector("#shoppingList", state="attached", timeout=10000)
+
+            # Get initial item counts
+            initial_count1 = len(page1.locator(".list-item").all())
+            initial_count2 = len(page2.locator(".list-item").all())
+
+            # Add an item from page1
+            page1.fill("#itemName", "Real-time Test Item")
+            page1.fill("#itemQuantity", "2")
+            page1.click(".add-btn")
+
+            # Wait for the item to appear in page1
+            page1.wait_for_selector(
+                '.list-item:has-text("Real-time Test Item")', timeout=5000
+            )
+
+            # Verify the item appears in page2 via SSE (without manual refresh)
+            page2.wait_for_selector(
+                '.list-item:has-text("Real-time Test Item")', timeout=10000
+            )
+
+            # Check item details in page2
+            item_name = page2.locator(
+                '.list-item:has-text("Real-time Test Item") .item-name'
+            ).inner_text()
+            item_quantity = page2.locator(
+                '.list-item:has-text("Real-time Test Item") .item-quantity'
+            ).inner_text()
+
+            self.assertEqual(item_name, "Real-time Test Item")
+            self.assertEqual(item_quantity, "2")
+
+            # Verify counts updated in both pages
+            final_count1 = len(page1.locator(".list-item").all())
+            final_count2 = len(page2.locator(".list-item").all())
+
+            self.assertEqual(final_count1, initial_count1 + 1)
+            self.assertEqual(final_count2, initial_count2 + 1)
+
+            # Test that page1 doesn't show echo (since it triggered the event)
+            # The item should still be there, but no duplicate toast or issues
+            self.assertEqual(
+                len(page1.locator('.list-item:has-text("Real-time Test Item")').all()),
+                1,
+            )
+
+            # Assert no errors occurred
+            assert_no_errors(errors1, "test_real_time_updates_page1")
+            assert_no_errors(errors2, "test_real_time_updates_page2")
+
+        finally:
+            # Cleanup pages
+            page1.close()
+            page2.close()
 
 
 def run_tests():

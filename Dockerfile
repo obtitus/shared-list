@@ -17,7 +17,7 @@ RUN uv sync --no-dev
 COPY app/ /code/app/
 
 # Create data directory for SQLite database
-RUN mkdir -p /code/data
+RUN mkdir -p /code/app/data
 
 # Expose port 8000
 EXPOSE 8000

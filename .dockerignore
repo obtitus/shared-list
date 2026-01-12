@@ -50,3 +50,6 @@ htmlcov/
 
 # playwright
 node_modules/
+
+# sqlite database
+*.db

@@ -25,6 +25,8 @@ export default defineConfig({
   reporter: process.env.CI ? 'json' : 'list',
   /* Stop test execution on first failure */
   maxFailures: 1,
+  /* Global test timeout - 5 minutes should be plenty */
+  timeout: 5 * 60 * 1000,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
@@ -33,8 +35,8 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     /* Reduce timeout for faster feedback */
-    actionTimeout: 10000,
-    navigationTimeout: 30000,
+    actionTimeout: 5000,
+    navigationTimeout: 15000,
   },
 
   /* Configure projects for major browsers */
@@ -88,6 +90,6 @@ export default defineConfig({
     command: 'uv run python app/main.py',
     url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 60 * 1000,
   },
 });

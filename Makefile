@@ -7,8 +7,11 @@ run:
 test:
 	$(MAKE) docker-down
 	-pkill -f app/main.py
-	uv run python -m unittest discover tests --failfast
+	uv run python -m unittest discover tests --failfast | tee unittest_output.tmp
 	$(MAKE) test-playwright
+	@echo "=== Unittest Summary ==="
+	@tail -3 unittest_output.tmp
+	@rm unittest_output.tmp
 
 # TypeScript Playwright testing
 test-playwright:

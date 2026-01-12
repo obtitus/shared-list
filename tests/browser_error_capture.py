@@ -97,6 +97,11 @@ class BrowserErrorCapture:
 
     def _handle_request_failed(self, request):
         """Handle network request failures"""
+        # Skip SSE connection aborts as they are expected when pages unload/navigate
+        if "/events" in request.url and "aborted" in str(request.failure).lower():
+            logging.debug(f"SSE connection aborted (expected): {request.url}")
+            return
+
         failure_data = {
             "type": "network_failure",
             "url": request.url,

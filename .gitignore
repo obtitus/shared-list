@@ -15,3 +15,6 @@ app/data/*.db
 # Playwright files
 node_modules/
 test-results/
+
+#
+unittest_output.tmp

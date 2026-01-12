@@ -328,8 +328,7 @@ class TestShoppingListAPI(unittest.TestCase):
         new_order = 1
 
         response = requests.patch(
-            f"{BASE_URL}/items/{item_to_move['id']}/reorder",
-            json=new_order,
+            f"{BASE_URL}/items/{item_to_move['id']}/reorder/{new_order}",
             timeout=TEST_TIMEOUT,
         )
         print(response)

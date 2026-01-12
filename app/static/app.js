@@ -15,6 +15,9 @@ let shoppingList = [];
 let currentList = { id: 1, name: 'Shopping List' };
 let isLoading = false;
 let isOnline = navigator.onLine;
+let eventSource = null;
+let hourlyRefreshTimer = null;
+let clientId = null;
 
 // DOM Elements
 const elements = {
@@ -34,11 +37,31 @@ const elements = {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+    initializeClientId();
     initializeEventListeners();
     loadListInfo();
     loadShoppingList();
     updateConnectionStatus();
+    connectToSSE();
+    setupHourlyRefresh();
 });
+
+/**
+ * Initialize Client ID
+ */
+function initializeClientId() {
+    // Try to get client ID from sessionStorage, or generate a new one
+    // sessionStorage is unique per tab/window, unlike localStorage
+    clientId = sessionStorage.getItem('shopping-list-client-id');
+    if (!clientId) {
+        clientId = 'client-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('shopping-list-client-id', clientId);
+    }
+    console.log('Client ID:', clientId);
+
+    // Expose clientId globally for testing
+    window.clientId = clientId;
+}
 
 /**
  * Initialize Event Listeners
@@ -88,6 +111,7 @@ async function apiRequest(url, options = {}) {
         const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
+                'X-Client-ID': clientId,
                 ...options.headers
             },
             ...options
@@ -642,9 +666,8 @@ async function handleDrop(event) {
 
     try {
         // Send reorder request to server
-        await apiRequest(`/items/${draggedItemId}/reorder`, {
-            method: 'PATCH',
-            body: JSON.stringify(newOrderIndex)
+        await apiRequest(`/items/${draggedItemId}/reorder/${newOrderIndex}`, {
+            method: 'PATCH'
         });
 
         showToast('Item reordered successfully', 'success');
@@ -776,9 +799,8 @@ async function handleTouchEnd(event) {
 
             try {
                 // Send reorder request to server
-                await apiRequest(`/items/${draggedItemId}/reorder`, {
-                    method: 'PATCH',
-                    body: JSON.stringify(newOrderIndex)
+                await apiRequest(`/items/${draggedItemId}/reorder/${newOrderIndex}`, {
+                    method: 'PATCH'
                 });
 
                 showToast('Item reordered successfully', 'success');
@@ -797,6 +819,249 @@ async function handleTouchEnd(event) {
     touchStartX = 0;
     touchStartY = 0;
 }
+
+/**
+ * Connect to Server-Sent Events for real-time updates
+ */
+function connectToSSE() {
+    if (!isOnline || eventSource) {
+        return;
+    }
+
+    try {
+        eventSource = new EventSource('/events');
+
+        eventSource.onopen = () => {
+            console.log('SSE connection established');
+            showToast('Connected to real-time updates', 'success');
+        };
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleSSEEvent(data);
+            } catch (error) {
+                console.error('SSE message parse error:', error);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('SSE connection error:', error);
+            showToast('Real-time updates connection lost', 'warning');
+
+            // Close and cleanup
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            // Try to reconnect after a delay
+            setTimeout(() => {
+                if (isOnline) {
+                    connectToSSE();
+                }
+            }, 5000);
+        };
+
+    } catch (error) {
+        console.error('Failed to create SSE connection:', error);
+    }
+}
+
+/**
+ * Handle Server-Sent Events
+ */
+function handleSSEEvent(data) {
+    // Skip ping events
+    if (data.type === 'ping') {
+        return;
+    }
+
+    // Ignore events triggered by this client
+    if (data.client_id === clientId) {
+        console.log('Ignoring own event:', data);
+        return;
+    }
+
+    console.log('Received SSE event:', data);
+
+    switch (data.type) {
+        case 'item_created':
+            handleItemCreated(data);
+            break;
+        case 'item_updated':
+            handleItemUpdated(data);
+            break;
+        case 'item_deleted':
+            handleItemDeleted(data);
+            break;
+        case 'item_toggled':
+            handleItemToggled(data);
+            break;
+        case 'item_reordered':
+            handleItemReordered(data);
+            break;
+        case 'clear':
+            handleListCleared(data);
+            break;
+        case 'list_update':
+            handleListUpdated(data);
+            break;
+        default:
+            console.log('Unknown SSE event type:', data.type);
+    }
+}
+
+/**
+ * Handle item created event
+ */
+function handleItemCreated(data) {
+    const newItem = data.item;
+    const existingIndex = shoppingList.findIndex(item => item.id === newItem.id);
+
+    if (existingIndex === -1) {
+        // Add new item to the list
+        shoppingList.push(newItem);
+        renderShoppingList();
+        updateEmptyState();
+        showToast('Item added from another device', 'info');
+    }
+}
+
+/**
+ * Handle item updated event
+ */
+function handleItemUpdated(data) {
+    const updatedItem = data.item;
+    const itemIndex = shoppingList.findIndex(item => item.id === updatedItem.id);
+
+    if (itemIndex !== -1) {
+        // Update existing item
+        shoppingList[itemIndex] = updatedItem;
+        renderShoppingList();
+        showToast('Item updated from another device', 'info');
+    }
+}
+
+/**
+ * Handle item deleted event
+ */
+function handleItemDeleted(data) {
+    const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
+
+    if (itemIndex !== -1) {
+        // Remove item from the list
+        shoppingList.splice(itemIndex, 1);
+        renderShoppingList();
+        updateEmptyState();
+        showToast('Item deleted from another device', 'info');
+    }
+}
+
+/**
+ * Handle item toggled event
+ */
+function handleItemToggled(data) {
+    const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
+
+    if (itemIndex !== -1) {
+        // Update completion status
+        shoppingList[itemIndex].completed = data.completed;
+        renderShoppingList();
+        showToast('Item status changed from another device', 'info');
+    }
+}
+
+/**
+ * Handle item reordered event
+ */
+function handleItemReordered(data) {
+    const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
+
+    if (itemIndex !== -1) {
+        // Reorder the item in the local list
+        const item = shoppingList.splice(itemIndex, 1)[0];
+
+        // Find new position based on order_index
+        let newIndex = shoppingList.findIndex(i => i.order_index >= data.new_order);
+        if (newIndex === -1) {
+            newIndex = shoppingList.length;
+        }
+
+        shoppingList.splice(newIndex, 0, item);
+
+        // Update order indices locally
+        shoppingList.forEach((item, index) => {
+            item.order_index = index + 1;
+        });
+
+        renderShoppingList();
+        showToast('Item reordered from another device', 'info');
+    }
+}
+
+/**
+ * Handle list cleared event
+ */
+function handleListCleared(data) {
+    if (data.list_id === currentList.id) {
+        shoppingList = [];
+        renderShoppingList();
+        updateEmptyState();
+        showToast('List cleared from another device', 'info');
+    }
+}
+
+/**
+ * Handle list updated event
+ */
+function handleListUpdated(data) {
+    if (data.list_id === currentList.id) {
+        currentList.name = data.name;
+        updateListTitle();
+        showToast('List name updated from another device', 'info');
+    }
+}
+
+/**
+ * Setup hourly refresh timer
+ */
+function setupHourlyRefresh() {
+    // Clear existing timer if any
+    if (hourlyRefreshTimer) {
+        clearInterval(hourlyRefreshTimer);
+    }
+
+    // Set up hourly refresh (3600000 ms = 1 hour)
+    hourlyRefreshTimer = setInterval(() => {
+        if (isOnline && !isLoading) {
+            console.log('Performing hourly refresh');
+            loadShoppingList();
+            loadListInfo();
+            showToast('Hourly refresh completed', 'info');
+        }
+    }, 3600000);
+
+    console.log('Hourly refresh timer set up');
+}
+
+/**
+ * Cleanup function for page unload
+ */
+function cleanup() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+
+    if (hourlyRefreshTimer) {
+        clearInterval(hourlyRefreshTimer);
+        hourlyRefreshTimer = null;
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', cleanup);
 
 /**
  * Utility: Escape HTML to prevent XSS

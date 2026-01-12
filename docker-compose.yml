@@ -9,7 +9,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount the data directory to persist SQLite database
-      - ./app/data:/code/data
+      - ./app/data:/code/app/data
       # Mount source code for development (optional, for hot reload)
       - ./app:/code/app:ro
     environment:
