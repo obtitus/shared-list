@@ -6,11 +6,14 @@ Tests all CRUD operations and verifies SQLite integration
 
 import unittest
 import requests
-import os
 import sys
+import logging
 
 # Import the server manager
 from server_manager import TestServerManager, check_prerequisites
+
+# Create logger
+logger = logging.getLogger("test." + __name__)
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -25,12 +28,18 @@ class TestShoppingListAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Setup server before running tests"""
-        print("🧪 Starting Shared Shopping List API Tests")
-        print("=" * 50)
-        print(
+        # Configure logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+        logger.info("🧪 Starting Shared Shopping List API Tests")
+        logger.info("=" * 50)
+        logger.info(
             "Using unittest framework to test FastAPI backend with SQLite integration"
         )
-        print()
+        logger.info("")
 
         # Check prerequisites
         if not check_prerequisites("api"):
@@ -41,7 +50,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
         # Start server if not already running
         if not cls.server_manager.check_server_running():
-            print("🚀 Starting FastAPI server...")
+            logger.info("🚀 Starting FastAPI server...")
             success = cls.server_manager.start_api_server(timeout=30)
             if not success:
                 raise RuntimeError("Failed to start API server")
@@ -50,17 +59,17 @@ class TestShoppingListAPI(unittest.TestCase):
             if not cls.server_manager.wait_for_server_boot(timeout=30):
                 raise RuntimeError("Server not ready after boot")
 
-        print("✅ Server is running and ready for tests")
+        logger.info("✅ Server is running and ready for tests")
 
         # Clear all items to start with clean state
         try:
             response = requests.delete(f"{BASE_URL}/items", timeout=TEST_TIMEOUT)
             if response.status_code != 200:
-                print(
-                    f"⚠️  Warning: Could not clear items, status {response.status_code}"
+                logger.warning(
+                    "⚠️  Warning: Could not clear items, status %s", response.status_code
                 )
         except Exception as e:
-            print(f"⚠️  Warning: Could not clear items: {e}")
+            logger.warning("⚠️  Warning: Could not clear items: %s", e)
 
     @classmethod
     def ensure_test_item_exists(cls):
@@ -93,6 +102,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
     def test_root_endpoint(self):
         """Test the root endpoint"""
+        logger.info("🏥 Testing API root endpoint...")
         response = requests.get(f"{BASE_URL}/api", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
@@ -331,7 +341,7 @@ class TestShoppingListAPI(unittest.TestCase):
             f"{BASE_URL}/items/{item_to_move['id']}/reorder/{new_order}",
             timeout=TEST_TIMEOUT,
         )
-        print(response)
+        logger.debug("Reorder response: %s", response)
         self.assertEqual(response.status_code, 200)
 
         result = response.json()
@@ -368,26 +378,5 @@ class TestShoppingListAPI(unittest.TestCase):
         self.assertNotEqual(response.status_code, 200)
 
 
-def run_tests():
-    """Run the test suite"""
-    print("🧪 Starting Shared Shopping List API Tests")
-    print("=" * 50)
-    print("Using unittest framework to test FastAPI backend with SQLite integration")
-    print()
-
-    # Check if required files exist
-    required_files = ["app/main.py", "app/database.py", "pyproject.toml"]
-    for file_path in required_files:
-        if not os.path.exists(file_path):
-            print(f"❌ Required file missing: {file_path}")
-            sys.exit(1)
-
-    # Run the tests
-    unittest.main(verbosity=2)
-
-    print("=" * 50)
-    print("🎉 API Test suite completed!")
-
-
 if __name__ == "__main__":
-    run_tests()
+    unittest.main(verbosity=2)

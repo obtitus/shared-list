@@ -5,9 +5,13 @@ Tests core functionality across multiple devices and browsers using unittest
 """
 import sys
 import unittest
+import logging
 from playwright.sync_api import sync_playwright
 from browser_error_capture import capture_browser_errors, assert_no_errors
 from server_manager import TestServerManager, check_prerequisites
+
+# Create logger
+logger = logging.getLogger(__name__)
 
 
 class TestShoppingListPWA(unittest.TestCase):
@@ -16,7 +20,12 @@ class TestShoppingListPWA(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Setup Docker environment before running tests"""
-        print("🐳 Starting Docker setup tests...")
+        # Configure logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+        logger.info("🐳 Starting Docker setup tests...")
 
         # Check prerequisites
         if not check_prerequisites("docker"):
@@ -27,7 +36,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Start Docker container if not already running
         if not cls.server_manager.check_server_running():
-            print("🐳 Starting Docker container...")
+            logger.info("🐳 Starting Docker container...")
             success = cls.server_manager.start_docker_server(timeout=120)
             if not success:
                 raise RuntimeError("Failed to start Docker container")
@@ -36,7 +45,7 @@ class TestShoppingListPWA(unittest.TestCase):
             if not cls.server_manager.wait_for_server_boot(timeout=60):
                 raise RuntimeError("Docker container not ready after boot")
 
-        print("✅ Docker container is running and ready for tests")
+        logger.info("✅ Docker container is running and ready for tests")
 
         # Initialize Playwright
         cls.playwright = sync_playwright().start()
@@ -51,7 +60,7 @@ class TestShoppingListPWA(unittest.TestCase):
         if hasattr(cls, "playwright") and cls.playwright:
             cls.playwright.stop()
         if hasattr(cls, "server_manager") and cls.server_manager:
-            print("🛑 tearDown Stopping server...")
+            logger.info("🛑 tearDown Stopping server...")
             cls.server_manager.stop_server()
 
     def setUp(self):
@@ -578,24 +587,6 @@ class TestShoppingListPWA(unittest.TestCase):
             page2.close()
 
 
-def run_tests():
-    """Run the test suite"""
-    print("🧪 Starting Playwright E2E Tests for Shared Shopping List PWA")
-    print("=" * 50)
-    print("Testing core functionality across multiple devices and browsers")
-    print(
-        "Target platforms: Computer running Chrome, iPhone SE (iOS 26.1), iPhone XR (iOS 18.7)"
-    )
-    print()
-
+if __name__ == "__main__":
     # Run the tests
     unittest.main(verbosity=2)
-
-    print("=" * 50)
-    print("🎉 Playwright test suite completed!")
-    return True
-
-
-if __name__ == "__main__":
-    success = run_tests()
-    exit(0 if success else 1)

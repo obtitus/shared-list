@@ -9,6 +9,9 @@ import logging
 from typing import List, Dict, Any
 from playwright.sync_api import Page, BrowserContext, ConsoleMessage, Dialog, Error
 
+# Create logger
+logger = logging.getLogger("test." + __name__)
+
 
 class BrowserErrorCapture:
     """Captures and reports browser errors during test execution"""
@@ -48,7 +51,7 @@ class BrowserErrorCapture:
                 "url": self.page.url,
             }
         )
-        logging.error(f"JavaScript Error: {error}")
+        logger.error(f"JavaScript Error: {error}")
 
     def _handle_console_message(self, message: ConsoleMessage):
         """Handle console messages"""
@@ -72,7 +75,7 @@ class BrowserErrorCapture:
 
         # Log errors and warnings
         if message.type in ["error", "warn"]:
-            logging.warning(f"Console {message.type}: {message.text}")
+            logger.warning(f"Console {message.type}: {message.text}")
 
     def _handle_dialog(self, dialog: Dialog):
         """Handle dialog interactions"""
@@ -84,7 +87,7 @@ class BrowserErrorCapture:
             "url": self.page.url,
         }
         self.dialogs.append(dialog_data)
-        logging.info(f"Dialog {dialog.type}: {dialog.message}")
+        logger.info(f"Dialog {dialog.type}: {dialog.message}")
 
         # Auto-accept confirmation dialogs for testing
         try:
@@ -93,13 +96,13 @@ class BrowserErrorCapture:
             else:
                 dialog.dismiss()
         except Exception as e:
-            logging.warning(f"Failed to handle dialog: {e}")
+            logger.warning(f"Failed to handle dialog: {e}")
 
     def _handle_request_failed(self, request):
         """Handle network request failures"""
         # Skip SSE connection aborts as they are expected when pages unload/navigate
         if "/events" in request.url and "aborted" in str(request.failure).lower():
-            logging.debug(f"SSE connection aborted (expected): {request.url}")
+            logger.debug(f"SSE connection aborted (expected): {request.url}")
             return
 
         failure_data = {
@@ -111,7 +114,7 @@ class BrowserErrorCapture:
             "headers": dict(request.headers) if hasattr(request, "headers") else {},
         }
         self.network_failures.append(failure_data)
-        logging.error(f"Network Failure: {request.url} - {request.failure}")
+        logger.error(f"Network Failure: {request.url} - {request.failure}")
 
     def _get_timestamp(self) -> str:
         """Get current timestamp"""
@@ -224,7 +227,8 @@ def assert_no_errors(capture: BrowserErrorCapture, test_name: str = ""):
         raise AssertionError(error_msg)
 
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+if __name__ == "__main__":
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )

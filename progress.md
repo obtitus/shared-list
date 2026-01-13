@@ -14,7 +14,7 @@
 - [x] Ensure two or more instances of the webpage gets updated automatically on changes, use Server-Sent Events (SSE) and force a refresh every hour.
 - [x] When the server connects and disconnects, don't show the "Real-time updates" banner, simply toggle the connection-status indicator.
 - [x] Add missing favicon.ico
-- [ ] Ensure all unittests use logging (keep it a simple stdout log) consistently
+- [x] Ensure all unittests use logging (keep it a simple stdout log) consistently
 - [ ] Implement service worker for iOS "Add to Home Screen"
 - [ ] Setup Ultra.cc deployment script
 

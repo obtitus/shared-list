@@ -16,10 +16,8 @@ import signal
 from typing import Optional
 import logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Create logger
+logger = logging.getLogger("test." + __name__)
 
 
 class ServerManager:
@@ -42,16 +40,16 @@ class ServerManager:
         except requests.exceptions.RequestException:
             pass
 
-        logging.info("⚠️  Server not detected on port")
+        logger.info("⚠️  Server not detected on port")
         return False
 
     def start_api_server(self, timeout: int = 30) -> bool:
         """Start the API server using uv run app/main.py"""
         if self.check_server_running():
-            logging.info("✅ API server already running")
+            logger.info("✅ API server already running")
             return True
 
-        logging.info("🚀 Starting API server with uv run...")
+        logger.info("🚀 Starting API server with uv run...")
         try:
             # Start server in background
             self.server_process = subprocess.Popen(
@@ -62,7 +60,7 @@ class ServerManager:
             start_time = time.time()
             while time.time() - start_time < timeout:
                 if self.check_server_running(timeout=2):
-                    logging.info("✅ API server started successfully")
+                    logger.info("✅ API server started successfully")
                     return True
                 time.sleep(0.25)
 
@@ -70,17 +68,17 @@ class ServerManager:
             return False
 
         except Exception as e:
-            logging.error(f"❌ Failed to start API server: {e}")
+            logger.error(f"❌ Failed to start API server: {e}")
             self.stop_server()
             return False
 
     def start_docker_server(self, timeout: int = 120) -> bool:
         """Start the Docker server using docker compose up -d"""
         if self.check_server_running():
-            logging.info("✅ Server already running")
+            logger.info("✅ Server already running")
             return True
 
-        logging.info("🐳 Starting Docker server...")
+        logger.info("🐳 Starting Docker server...")
         try:
             # Clean up any existing containers first
             self._cleanup_docker_containers()
@@ -94,7 +92,7 @@ class ServerManager:
             )
 
             if result.returncode != 0:
-                logging.error(f"❌ Docker compose up failed: {result.stderr}")
+                logger.error(f"❌ Docker compose up failed: {result.stderr}")
                 return False
 
             self.server_docker_started = True
@@ -103,27 +101,27 @@ class ServerManager:
             start_time = time.time()
             while time.time() - start_time < timeout:
                 if self.check_server_running(timeout=2):
-                    logging.info("✅ Docker server started successfully")
+                    logger.info("✅ Docker server started successfully")
                     return True
                 time.sleep(0.25)
 
-            logging.error("❌ Docker server not ready after timeout")
+            logger.error("❌ Docker server not ready after timeout")
             self.stop_server()
             return False
 
         except subprocess.TimeoutExpired:
-            logging.error("❌ Docker compose up timed out")
+            logger.error("❌ Docker compose up timed out")
             self.stop_server()
             return False
         except Exception as e:
-            logging.error(f"❌ Failed to start Docker server: {e}")
+            logger.error(f"❌ Failed to start Docker server: {e}")
             self.stop_server()
             return False
 
     def wait_for_server_boot(self, timeout: int = 30) -> bool:
         """Wait for server to fully boot and be ready to handle requests"""
         if not self.check_server_running():
-            logging.warning("⚠️  Server is not running")
+            logger.warning("⚠️  Server is not running")
             return False
 
         start_time = time.time()
@@ -134,20 +132,20 @@ class ServerManager:
                 if response.status_code == 200:
                     items = response.json()
                     if isinstance(items, list):
-                        logging.info("✅ Server fully booted and ready")
+                        logger.info("✅ Server fully booted and ready")
                         return True
             except requests.exceptions.RequestException:
                 pass
 
             time.sleep(1)
 
-        logging.error("❌ Server not fully ready after timeout")
+        logger.error("❌ Server not fully ready after timeout")
         return False
 
     def stop_server(self):
         """Stop the running server"""
 
-        logging.info("🛑 Stopping server...")
+        logger.info("🛑 Stopping server...")
         try:
             if self.server_process is not None:
                 # First try graceful shutdown
@@ -155,20 +153,18 @@ class ServerManager:
 
                 try:
                     self.server_process.wait(timeout=10)  # Increased timeout
-                    logging.info("✅ API server stopped gracefully")
+                    logger.info("✅ API server stopped gracefully")
                 except subprocess.TimeoutExpired:
-                    logging.warning(
-                        "⚠️  Server didn't stop gracefully, force killing..."
-                    )
+                    logger.warning("⚠️  Server didn't stop gracefully, force killing...")
                     if self.server_process and self.server_process.pid:
                         try:
                             os.killpg(
                                 os.getpgid(self.server_process.pid), signal.SIGKILL
                             )
                             self.server_process.wait(timeout=5)
-                            logging.info("✅ API server force killed")
+                            logger.info("✅ API server force killed")
                         except (OSError, subprocess.TimeoutExpired) as e:
-                            logging.error(f"❌ Failed to kill server process: {e}")
+                            logger.error(f"❌ Failed to kill server process: {e}")
 
             if self.server_docker_started:
                 # For Docker, use docker compose down
@@ -178,23 +174,23 @@ class ServerManager:
                     text=True,
                     timeout=30,
                 )
-                logging.info("✅ Docker server stopped")
+                logger.info("✅ Docker server stopped")
                 self.server_docker_started = False
 
             # Verify server is actually down by checking if port is free
             start_time = time.time()
             while time.time() - start_time < 30:
                 if not self.check_server_running(timeout=1):
-                    logging.info("✅ Server confirmed down")
+                    logger.info("✅ Server confirmed down")
                     break
                 time.sleep(1)
             else:
-                logging.warning(
+                logger.warning(
                     "⚠️ Server still appears to be running after stop attempt"
                 )
 
         except Exception as e:
-            logging.error(f"❌ Error stopping server: {e}")
+            logger.error(f"❌ Error stopping server: {e}")
         finally:
             self.server_process = None
 
@@ -289,11 +285,11 @@ def check_prerequisites(test_type: str) -> bool:
                 ["docker", "--version"], capture_output=True, text=True
             )
             if result.returncode != 0:
-                logging.error("❌ Docker is not available or not running")
+                logger.error("❌ Docker is not available or not running")
                 return False
-            logging.info(f"✅ Docker version: {result.stdout.strip()}")
+            logger.info(f"✅ Docker version: {result.stdout.strip()}")
         except FileNotFoundError:
-            logging.error("❌ Docker command not found")
+            logger.error("❌ Docker command not found")
             return False
 
     # Check required files
@@ -305,13 +301,18 @@ def check_prerequisites(test_type: str) -> bool:
 
     for file_path in required_files:
         if not os.path.exists(file_path):
-            logging.error(f"❌ Required file missing: {file_path}")
+            logger.error(f"❌ Required file missing: {file_path}")
             return False
 
     return True
 
 
 if __name__ == "__main__":
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
     # Example usage
 
     if len(sys.argv) > 1:
