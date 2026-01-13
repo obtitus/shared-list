@@ -9,9 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# Data
-app/data/*.db
-
 # Playwright files
 node_modules/
 test-results/
