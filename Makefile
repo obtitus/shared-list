@@ -1,4 +1,4 @@
-.PHONY: run test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright
+.PHONY: run test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright icons
 
 run:
 	uv run app/main.py
@@ -52,7 +52,7 @@ docker-run:
 
 # Generate PWA icons from source 500x500 icon
 icons:
-	@echo "Generating PWA icons from shopping-cart-500x500.png..."
+	convert app/static/icons/shopping-cart-500x500.png -resize 16x16 app/static/icons/favicon.ico
 	convert app/static/icons/shopping-cart-500x500.png -resize 72x72 app/static/icons/icon-72x72.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 96x96 app/static/icons/icon-96x96.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 128x128 app/static/icons/icon-128x128.png
@@ -61,4 +61,3 @@ icons:
 	convert app/static/icons/shopping-cart-500x500.png -resize 512x512 app/static/icons/icon-512x512.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 1024x1024 app/static/icons/icon-1024x1024.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 640x1136 app/static/icons/splash-640x1136.png
-	@echo "PWA icons generated successfully!"
