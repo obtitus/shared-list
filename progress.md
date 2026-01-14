@@ -1,6 +1,12 @@
 # Project Progress
 
 ## To-Do
+- [x] When adding an item, make it simple to select where in the list it appears. One solution could be to allow the user to select existing items in the list and inserting above the selected item.
+- [x] Add clipboard-based import/export feature with iOS-compatible Web Share API, supporting plain text format (one item per row) with flexible parsing for quantities and bullet points.
+- [x] Allow empty items, they work nicely as a visual spacer
+
+## Done
+- [x] Project initialization and `.clinerules` setup
 - [x] Create FastAPI backend with SQLite integration, ensure it runs outside docker
 - [x] Setup Docker Compose for local development (Port 8000)
 - [x] Add unittests with standard library unittest and ensure lint passes
@@ -16,6 +22,3 @@
 - [x] Add missing favicon.ico
 - [x] Ensure all unittests use logging (keep it a simple stdout log) consistently
 - [x] Setup apoc.usbx.me deployment script
-
-## Done
-- [x] Project initialization and `.clinerules` setup

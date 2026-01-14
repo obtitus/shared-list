@@ -214,16 +214,24 @@ async def create_item(item: ItemCreate, request: Request, list_id: int = 1):
     client_id = request.headers.get("X-Client-ID")
 
     with get_db() as conn:
-        # Get the next order_index for this list
-        cursor = conn.execute(
-            "SELECT COALESCE(MAX(order_index), 0) + 1 FROM items WHERE list_id = ?",
-            (list_id,),
-        )
-        next_order = cursor.fetchone()[0]
+        if item.order_index > 0:
+            # Insert at specific position - shift higher order_indices up
+            conn.execute(
+                "UPDATE items SET order_index = order_index + 1 WHERE list_id = ? AND order_index >= ?",
+                (list_id, item.order_index),
+            )
+            insert_order = item.order_index
+        else:
+            # Append at the end
+            cursor = conn.execute(
+                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM items WHERE list_id = ?",
+                (list_id,),
+            )
+            insert_order = cursor.fetchone()[0]
 
         cursor = conn.execute(
             "INSERT INTO items (list_id, name, quantity, completed, order_index) VALUES (?, ?, ?, ?, ?)",
-            (list_id, item.name, item.quantity, item.completed, next_order),
+            (list_id, item.name, item.quantity, item.completed, insert_order),
         )
         conn.commit()
 

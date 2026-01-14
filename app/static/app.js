@@ -19,6 +19,7 @@ let isRealTimeConnected = false;
 let eventSource = null;
 let hourlyRefreshTimer = null;
 let clientId = null;
+let selectedItemId = null;
 
 // DOM Elements
 const elements = {
@@ -31,6 +32,13 @@ const elements = {
     statusDot: document.querySelector('.status-dot'),
     clearBtn: document.getElementById('clearBtn'),
     refreshBtn: document.getElementById('refreshBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    importBtn: document.getElementById('importBtn'),
+    importModal: document.getElementById('importModal'),
+    importText: document.getElementById('importText'),
+    importCancel: document.getElementById('importCancel'),
+    importConfirm: document.getElementById('importConfirm'),
+    importModalClose: document.getElementById('importModalClose'),
     toastContainer: document.getElementById('toastContainer'),
     loadingOverlay: document.getElementById('loadingOverlay')
 };
@@ -73,6 +81,8 @@ function initializeEventListeners() {
     // Button actions
     elements.clearBtn.addEventListener('click', handleClearAll);
     elements.refreshBtn.addEventListener('click', handleRefresh);
+    elements.exportBtn.addEventListener('click', handleExport);
+    elements.importBtn.addEventListener('click', handleImport);
 
     // List title editing
     const listTitleElement = document.querySelector('.list-title');
@@ -96,6 +106,18 @@ function initializeEventListeners() {
     // Input validation
     elements.itemNameInput.addEventListener('input', validateForm);
     elements.itemQuantityInput.addEventListener('input', validateForm);
+
+    // Import modal event listeners
+    elements.importModalClose.addEventListener('click', closeImportModal);
+    elements.importCancel.addEventListener('click', closeImportModal);
+    elements.importConfirm.addEventListener('click', handleImportConfirm);
+
+    // Close modal when clicking outside
+    elements.importModal.addEventListener('click', (e) => {
+        if (e.target === elements.importModal) {
+            closeImportModal();
+        }
+    });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
@@ -276,24 +298,51 @@ async function handleAddItem(e) {
     const name = elements.itemNameInput.value.trim();
     const quantity = parseInt(elements.itemQuantityInput.value, 10);
 
-    if (!name || quantity <= 0) {
-        showToast('Please enter a valid item name and quantity', 'error');
+    if (quantity <= 0) {
+        showToast('Please enter a valid quantity', 'error');
         return;
     }
+
+    // Allow empty names for visual spacers
+    name = name.trim();
 
     setLoading(true);
 
     try {
+        const payload = {
+            name: name,
+            quantity: quantity,
+            completed: false
+        };
+
+        // If an item is selected, insert above it
+        if (selectedItemId !== null) {
+            const selectedItem = shoppingList.find(item => item.id === selectedItemId);
+            if (selectedItem) {
+                payload.order_index = selectedItem.order_index;
+            }
+        }
+
         const newItem = await apiRequest(API_BASE_URL, {
             method: 'POST',
-            body: JSON.stringify({
-                name: name,
-                quantity: quantity,
-                completed: false
-            })
+            body: JSON.stringify(payload)
         });
 
-        shoppingList.push(newItem);
+        // Insert at correct position locally
+        if (selectedItemId !== null) {
+            const selectedIndex = shoppingList.findIndex(item => item.id === selectedItemId);
+            if (selectedIndex !== -1) {
+                shoppingList.splice(selectedIndex, 0, newItem);
+            } else {
+                shoppingList.push(newItem);
+            }
+        } else {
+            shoppingList.push(newItem);
+        }
+
+        // Clear selection
+        selectedItemId = null;
+
         renderShoppingList();
         updateEmptyState();
 
@@ -412,6 +461,225 @@ async function handleRefresh() {
 }
 
 /**
+ * Handle Export Button Click
+ */
+async function handleExport() {
+    if (shoppingList.length === 0) {
+        showToast('No items to export', 'warning');
+        return;
+    }
+
+    // Format items as plain text, one per line
+    const exportText = shoppingList
+        .sort((a, b) => a.order_index - b.order_index)
+        .map(item => {
+            const checkmark = item.completed ? '✓ ' : '';
+            const quantity = item.quantity > 1 ? ` x ${item.quantity}` : '';
+            return `${checkmark}${item.name}${quantity}`;
+        })
+        .join('\n');
+
+    const exportData = {
+        title: `${currentList.name} - Shopping List`,
+        text: exportText,
+    };
+
+    try {
+        // Try Web Share API first (excellent iOS support)
+        if (navigator.share && navigator.canShare && navigator.canShare(exportData)) {
+            await navigator.share(exportData);
+            showToast('List shared successfully', 'success');
+            return;
+        }
+    } catch (error) {
+        console.log('Web Share API not available or failed, trying clipboard');
+    }
+    console.log('=== SHOPPING LIST EXPORT ===');
+    console.log(exportText);
+    console.log('=== END EXPORT ===');
+    // Fallback to clipboard API
+    try {
+        await navigator.clipboard.writeText(exportText);
+        showToast('List copied to clipboard', 'success');
+    } catch (error) {
+        console.error('Clipboard API failed:', error);
+
+        showToast('List logged to console - copy manually', 'info');
+    }
+}
+
+/**
+ * Handle Import Button Click
+ */
+function handleImport() {
+    // Clear previous content
+    elements.importText.value = '';
+
+    // Show modal
+    elements.importModal.style.display = 'flex';
+
+    // Focus on textarea
+    setTimeout(() => {
+        elements.importText.focus();
+    }, 100);
+}
+
+/**
+ * Close Import Modal
+ */
+function closeImportModal() {
+    elements.importModal.style.display = 'none';
+}
+
+/**
+ * Handle Import Confirm Button Click
+ */
+async function handleImportConfirm() {
+    if (!isOnline) {
+        showToast('Cannot import items while offline', 'error');
+        closeImportModal();
+        return;
+    }
+
+    const importText = elements.importText.value.trim();
+
+    if (!importText) {
+        showToast('Please enter some text to import', 'warning');
+        return;
+    }
+
+    // Parse the text
+    const parsedItems = parseImportText(importText);
+
+    if (parsedItems.length === 0) {
+        showToast('No valid items found to import', 'warning');
+        return;
+    }
+
+    // Close modal first
+    closeImportModal();
+
+    // Show loading
+    setLoading(true);
+
+    try {
+        let successCount = 0;
+        let errorCount = 0;
+
+        // Add items sequentially
+        for (const item of parsedItems) {
+            try {
+                const newItem = await apiRequest(API_BASE_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: item.name,
+                        quantity: item.quantity,
+                        completed: item.completed
+                    })
+                });
+
+                // Add to local list
+                shoppingList.push(newItem);
+                successCount++;
+            } catch (error) {
+                console.error('Failed to import item:', item, error);
+                errorCount++;
+            }
+        }
+
+        // Update UI
+        renderShoppingList();
+        updateEmptyState();
+
+        // Show result message
+        if (errorCount === 0) {
+            showToast(`Successfully imported ${successCount} item${successCount !== 1 ? 's' : ''}`, 'success');
+        } else {
+            showToast(`Imported ${successCount} item${successCount !== 1 ? 's' : ''}, ${errorCount} failed`, 'warning');
+        }
+
+    } catch (error) {
+        showToast('Failed to import items', 'error');
+        console.error('Import error:', error);
+    } finally {
+        setLoading(false);
+    }
+}
+
+/**
+ * Parse import text into items
+ */
+function parseImportText(text) {
+    const items = [];
+
+    // Split by newlines and process each line
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Skip empty lines
+        if (!trimmedLine) continue;
+
+        // Remove leading bullets/markers
+        const cleanLine = trimmedLine.replace(/^[\s\-\*\•\◦•○●■□▪▫]+/, '').trim();
+
+        // Skip if line becomes empty after cleaning
+        if (!cleanLine) continue;
+
+        // Check for completion status
+        let completed = false;
+        let processedLine = cleanLine;
+
+        // Check for checkmark patterns: ✓, [x], [X], etc.
+        if (/^✓/.test(processedLine)) {
+            completed = true;
+            processedLine = processedLine.replace(/^✓\s*/, '');
+        } else if (/^\[x\]/i.test(processedLine)) {
+            completed = true;
+            processedLine = processedLine.replace(/^\[x\]\s*/i, '');
+        }
+        // Also handle [ ] for explicitly incomplete items (though they're already false by default)
+        else if (/^\[\s*\]/.test(processedLine)) {
+            processedLine = processedLine.replace(/^\[\s*\]\s*/, '');
+        }
+
+        // Parse quantity patterns
+        // Match patterns like: "Item x 2", "2 x Item", "Item x2", "2x Item"
+        const quantityRegex = /^(.+?)\s*x\s*(\d+)$/i;
+        const reverseQuantityRegex = /^(\d+)\s*x\s*(.+)$/i;
+
+        let name = processedLine.trim();
+        let quantity = 1;
+
+        // Try "Item x Quantity" pattern
+        const quantityMatch = processedLine.match(quantityRegex);
+        if (quantityMatch) {
+            name = quantityMatch[1].trim();
+            quantity = parseInt(quantityMatch[2], 10);
+        } else {
+            // Try "Quantity x Item" pattern
+            const reverseMatch = processedLine.match(reverseQuantityRegex);
+            if (reverseMatch) {
+                quantity = parseInt(reverseMatch[1], 10);
+                name = reverseMatch[2].trim();
+            }
+        }
+
+        // Validate quantity (allow empty names for visual spacers)
+        if (quantity > 0) {
+            items.push({
+                name: name,
+                quantity: quantity,
+                completed: completed
+            });
+        }
+    }
+
+    return items;
+}
+
+/**
  * Render Shopping List
  */
 function renderShoppingList() {
@@ -419,10 +687,11 @@ function renderShoppingList() {
 
     shoppingList.forEach(item => {
         const listItem = document.createElement('div');
-        listItem.className = `list-item ${item.completed ? 'completed' : ''}`;
+        listItem.className = `list-item ${item.completed ? 'completed' : ''} ${item.id === selectedItemId ? 'selected' : ''}`;
         listItem.setAttribute('data-item-id', item.id);
         listItem.setAttribute('data-order-index', item.order_index || 0);
         listItem.draggable = true;
+        listItem.onclick = () => handleSelectItem(item.id);
 
         listItem.innerHTML = `
             <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${item.id})" ontouchstart="handleTouchStart(event, ${item.id})" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)" title="Drag to reorder">
@@ -435,7 +704,7 @@ function renderShoppingList() {
             </button>
 
             <div class="item-content">
-                <span class="item-name">${escapeHtml(item.name)}</span>
+                <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
                 <span class="item-quantity">${item.quantity}</span>
             </div>
 
@@ -520,7 +789,8 @@ function validateForm() {
     const name = elements.itemNameInput.value.trim();
     const quantity = parseInt(elements.itemQuantityInput.value, 10);
 
-    const isValid = name.length > 0 && quantity > 0;
+    // Allow empty names for visual spacers, just require valid quantity
+    const isValid = quantity > 0;
     elements.addItemForm.querySelector('.add-btn').disabled = !isValid;
 }
 
@@ -543,8 +813,19 @@ function handleKeyboardShortcuts(e) {
 
     // Escape: Clear selection/focus
     if (e.key === 'Escape') {
+        selectedItemId = null;
+        renderShoppingList();
         document.activeElement.blur();
     }
+}
+
+/**
+ * Handle item selection for insertion
+ */
+function handleSelectItem(itemId) {
+    // Toggle selection: if already selected, deselect; else select
+    selectedItemId = (selectedItemId === itemId) ? null : itemId;
+    renderShoppingList();
 }
 
 /**
@@ -1094,6 +1375,9 @@ window.app = {
     handleDeleteItem,
     handleClearAll,
     handleRefresh,
+    handleExport,
+    handleImport,
+    parseImportText,
     showToast,
     setLoading
 };

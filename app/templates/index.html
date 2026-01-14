@@ -77,6 +77,8 @@
                 <div class="list-header">
                     <h2 class="list-title" title="Click to edit list name">Shopping List</h2>
                     <div class="list-actions">
+                        <button class="export-btn" id="exportBtn">📤 Export</button>
+                        <button class="import-btn" id="importBtn">📥 Import</button>
                         <button class="clear-btn" id="clearBtn">🗑️ Clear All</button>
                         <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
                     </div>
@@ -105,6 +107,32 @@
 
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📥 Import Shopping List</h3>
+                <button class="modal-close" id="importModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Paste your shopping list below. Each item should be on a separate line.
+                    You can include quantities like "Milk x 2" or just "Milk".
+                </p>
+                <textarea
+                    id="importText"
+                    class="import-textarea"
+                    placeholder="Milk x 2&#10;Bread&#10;Eggs x 12&#10;- Apples&#10;* Bananas"
+                    rows="8"
+                ></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-cancel" id="importCancel">Cancel</button>
+                <button class="modal-btn modal-confirm" id="importConfirm">Import Items</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">

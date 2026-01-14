@@ -317,6 +317,61 @@ class TestShoppingListAPI(unittest.TestCase):
         second_item = response.json()
         self.assertEqual(second_item["order_index"], 2)
 
+    def test_create_item_with_order_index(self):
+        """Test creating an item with a specific order_index (insertion)"""
+        # Clear all items first
+        requests.delete(f"{BASE_URL}/items", timeout=TEST_TIMEOUT)
+
+        # Add three items
+        items = []
+        for i in range(3):
+            response = requests.post(
+                f"{BASE_URL}/items",
+                json={"name": f"Item {i+1}", "quantity": 1, "completed": False},
+                timeout=TEST_TIMEOUT,
+            )
+            self.assertEqual(response.status_code, 201)
+            items.append(response.json())
+
+        # Verify initial order
+        response = requests.get(f"{BASE_URL}/items", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+        current_items = response.json()
+        self.assertEqual(len(current_items), 3)
+        self.assertEqual(current_items[0]["name"], "Item 1")
+        self.assertEqual(current_items[1]["name"], "Item 2")
+        self.assertEqual(current_items[2]["name"], "Item 3")
+
+        # Insert a new item at position 2 (above "Item 2")
+        response = requests.post(
+            f"{BASE_URL}/items",
+            json={
+                "name": "New Item",
+                "quantity": 2,
+                "completed": False,
+                "order_index": 2,
+            },
+            timeout=TEST_TIMEOUT,
+        )
+        self.assertEqual(response.status_code, 201)
+        new_item = response.json()
+        self.assertEqual(new_item["name"], "New Item")
+        self.assertEqual(new_item["order_index"], 2)
+
+        # Verify new order: Item 1, New Item, Item 2, Item 3
+        response = requests.get(f"{BASE_URL}/items", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+        updated_items = response.json()
+        self.assertEqual(len(updated_items), 4)
+        self.assertEqual(updated_items[0]["name"], "Item 1")
+        self.assertEqual(updated_items[0]["order_index"], 1)
+        self.assertEqual(updated_items[1]["name"], "New Item")
+        self.assertEqual(updated_items[1]["order_index"], 2)
+        self.assertEqual(updated_items[2]["name"], "Item 2")
+        self.assertEqual(updated_items[2]["order_index"], 3)
+        self.assertEqual(updated_items[3]["name"], "Item 3")
+        self.assertEqual(updated_items[3]["order_index"], 4)
+
     def test_reorder_item(self):
         """Test reordering an item to a new position"""
         # Clear all items first

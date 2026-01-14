@@ -352,27 +352,27 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_form_validation(self):
         """Test form validation"""
-        # Test with empty name
+        # Test with empty name and valid quantity (allowed for visual spacers)
         self.page.fill("#itemName", "")
         self.page.fill("#itemQuantity", "1")
 
-        # Check that add button is disabled
+        # Check that add button is enabled (empty names allowed for spacers)
         add_button = self.page.locator(".add-btn")
-        self.assertTrue(add_button.is_disabled())
+        self.assertFalse(add_button.is_disabled())
 
-        # Test with invalid quantity
+        # Test with valid name and quantity
+        self.page.fill("#itemName", "Test Item")
+        self.page.fill("#itemQuantity", "2")
+
+        # Check that add button is enabled
+        self.assertFalse(add_button.is_disabled())
+
+        # Test with invalid quantity (should be disabled regardless of name)
         self.page.fill("#itemName", "Test Item")
         self.page.fill("#itemQuantity", "0")
 
         # Check that add button is disabled
         self.assertTrue(add_button.is_disabled())
-
-        # Test with valid input
-        self.page.fill("#itemName", "Test Item")
-        self.page.fill("#itemQuantity", "1")
-
-        # Check that add button is enabled
-        self.assertFalse(add_button.is_disabled())
 
     def test_toast_notifications(self):
         """Test toast notification system"""
@@ -410,6 +410,54 @@ class TestShoppingListPWA(unittest.TestCase):
         # Restore online status
         self.page.context.set_offline(False)
         self.page.wait_for_timeout(1000)
+
+    def test_item_insertion_via_selection(self):
+        """Test selecting an item and inserting a new item above it"""
+        # Clear all items first
+        self.page.click("#clearBtn")
+        self.page.wait_for_timeout(1000)
+
+        # Add three items first
+        for i in range(3):
+            self.page.fill("#itemName", f"Item {i+1}")
+            self.page.fill("#itemQuantity", "1")
+            self.page.click(".add-btn")
+            self.page.wait_for_timeout(1000)
+
+        # Verify initial order
+        items = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(items, ["Item 1", "Item 2", "Item 3"])
+
+        # Select the second item ("Item 2") by clicking on it
+        second_item = self.page.locator('.list-item:has-text("Item 2")')
+        second_item.click()
+
+        # Check that it's selected (has selected class)
+        item_class = second_item.get_attribute("class") or ""
+        self.assertIn("selected", item_class)
+
+        # Add a new item with selection active
+        self.page.fill("#itemName", "New Item")
+        self.page.fill("#itemQuantity", "2")
+        self.page.click(".add-btn")
+
+        # Wait for the item to appear
+        self.page.wait_for_timeout(2000)
+
+        # Verify new order: Item 1, New Item, Item 2, Item 3
+        updated_items = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(updated_items, ["Item 1", "New Item", "Item 2", "Item 3"])
+
+        # Check quantities
+        quantities = self.page.locator(".list-item .item-quantity").all_text_contents()
+        self.assertEqual(quantities, ["1", "2", "1", "1"])
+
+        # Verify selection is cleared after adding
+        selected_items = self.page.locator(".list-item.selected").all()
+        self.assertEqual(len(selected_items), 0)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_item_insertion_via_selection")
 
     def test_responsive_design(self):
         """Test responsive design on mobile"""
@@ -585,6 +633,178 @@ class TestShoppingListPWA(unittest.TestCase):
             # Cleanup pages
             page1.close()
             page2.close()
+
+    def test_import_export_parsing(self):
+        """Test the import text parsing logic"""
+        # Test various input formats
+        test_cases = [
+            # (input_text, expected_output)
+            (
+                "Milk x 2\nBread\n✓ Eggs x 12\n- Apples\n* Bananas",
+                [
+                    {"name": "Milk", "quantity": 2, "completed": False},
+                    {"name": "Bread", "quantity": 1, "completed": False},
+                    {"name": "Eggs", "quantity": 12, "completed": True},
+                    {"name": "Apples", "quantity": 1, "completed": False},
+                    {"name": "Bananas", "quantity": 1, "completed": False},
+                ],
+            ),
+            (
+                "[x] Completed Task\n[ ] Incomplete Task\n2 x Oranges",
+                [
+                    {"name": "Completed Task", "quantity": 1, "completed": True},
+                    {"name": "Incomplete Task", "quantity": 1, "completed": False},
+                    {"name": "Oranges", "quantity": 2, "completed": False},
+                ],
+            ),
+            ("", []),  # Empty input
+            ("\n\n\n", []),  # Only whitespace/newlines
+            (
+                "Simple item\n✓ Completed item\n3 x Items with quantity",
+                [
+                    {"name": "Simple item", "quantity": 1, "completed": False},
+                    {"name": "Completed item", "quantity": 1, "completed": True},
+                    {"name": "Items with quantity", "quantity": 3, "completed": False},
+                ],
+            ),
+        ]
+
+        for input_text, expected in test_cases:
+            with self.subTest(input_text=input_text):
+                # Execute the parseImportText function in the browser context
+                result = self.page.evaluate(
+                    f"""
+                    () => {{
+                        return parseImportText({repr(input_text)});
+                    }}
+                """
+                )
+
+                # Normalize the result for comparison (ensure consistent types)
+                normalized_result = []
+                for item in result:
+                    normalized_result.append(
+                        {
+                            "name": item["name"],
+                            "quantity": int(item["quantity"]),
+                            "completed": bool(item["completed"]),
+                        }
+                    )
+
+                self.assertEqual(
+                    normalized_result, expected, f"Failed to parse: {repr(input_text)}"
+                )
+
+    def test_import_export_ui_functionality(self):
+        """Test the import/export UI functionality"""
+        # Clear all items first
+        self.page.click("#clearBtn")
+        self.page.wait_for_timeout(1000)
+
+        # Add some test items with completion status
+        test_items = [
+            {"name": "Milk", "quantity": 2, "completed": False},
+            {"name": "Bread", "quantity": 1, "completed": True},
+            {"name": "Eggs", "quantity": 12, "completed": False},
+        ]
+
+        for item in test_items:
+            self.page.fill("#itemName", item["name"])
+            self.page.fill("#itemQuantity", str(item["quantity"]))
+            self.page.click(".add-btn")
+            self.page.wait_for_timeout(1000)
+
+            # Mark as completed if needed
+            if item["completed"]:
+                # Find the item and toggle it
+                item_locator = self.page.locator(
+                    f'.list-item:has-text("{item["name"]}") .item-checkbox'
+                )
+                item_locator.click()
+                self.page.wait_for_timeout(1000)
+
+        # Test export functionality (in headless mode, clipboard permission is denied,
+        # so it falls back to console.log which we can capture)
+        self.page.click("#exportBtn")
+        self.page.wait_for_timeout(1000)
+
+        # Export always logs to console with delimiters for testing
+        # Check that the console contains the expected export format
+        console_messages = []
+        self.page.on("console", lambda msg: console_messages.append(msg.text))
+
+        # Click export and wait for console messages
+        self.page.click("#exportBtn")
+        self.page.wait_for_timeout(1000)
+
+        # Verify console contains the delimited export
+        export_start_found = any(
+            "=== SHOPPING LIST EXPORT ===" in msg for msg in console_messages
+        )
+        export_end_found = any("=== END EXPORT ===" in msg for msg in console_messages)
+
+        # Check that we have the export content (should be the middle message)
+        export_content_found = False
+        for i, msg in enumerate(console_messages):
+            if "=== SHOPPING LIST EXPORT ===" in msg and i + 1 < len(console_messages):
+                # Next message should be the actual content
+                next_msg = console_messages[i + 1]
+                if next_msg and not next_msg.startswith("==="):
+                    export_content_found = True
+                    break
+
+        self.assertTrue(
+            export_start_found and export_end_found and export_content_found,
+            f"Export should log to console with delimiters. Console messages: {console_messages}",
+        )
+
+        # Test import modal opens
+        self.page.click("#importBtn")
+        self.page.wait_for_selector("#importModal", timeout=5000)
+        self.assertTrue(self.page.locator("#importModal").is_visible())
+
+        # Test import functionality with sample data
+        import_text = "New Milk x 3\n✓ New Bread\nNew Eggs"
+        self.page.fill("#importText", import_text)
+        self.page.click("#importConfirm")
+
+        # Wait for modal to close and items to be added
+        self.page.wait_for_timeout(3000)
+
+        # Verify modal is closed
+        self.assertFalse(self.page.locator("#importModal").is_visible())
+
+        # Verify new items were added
+        all_items = self.page.locator(".list-item .item-name").all_text_contents()
+        all_quantities = self.page.locator(
+            ".list-item .item-quantity"
+        ).all_text_contents()
+
+        # Check that new items are present
+        self.assertIn("New Milk", all_items)
+        self.assertIn("New Bread", all_items)
+        self.assertIn("New Eggs", all_items)
+
+        # Check quantities
+        milk_index = all_items.index("New Milk")
+        bread_index = all_items.index("New Bread")
+        eggs_index = all_items.index("New Eggs")
+
+        self.assertEqual(all_quantities[milk_index], "3")
+        self.assertEqual(all_quantities[bread_index], "1")
+        self.assertEqual(all_quantities[eggs_index], "1")
+
+        # Check completion status for New Bread (should be completed)
+        bread_item = self.page.locator(".list-item").nth(bread_index)
+        bread_class = bread_item.get_attribute("class") or ""
+        self.assertIn("completed", bread_class)
+
+        # Assert no errors occurred (ignore expected clipboard API errors in headless mode)
+        assert_no_errors(
+            self.browser_errors,
+            "test_import_export_ui_functionality",
+            ignore_patterns=["Clipboard API failed"],
+        )
 
 
 if __name__ == "__main__":

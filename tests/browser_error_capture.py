@@ -6,7 +6,7 @@ Captures JavaScript errors, console errors, and network failures during test exe
 
 import json
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from playwright.sync_api import Page, BrowserContext, ConsoleMessage, Dialog, Error
 
 # Create logger
@@ -195,8 +195,15 @@ def capture_browser_errors(page: Page, context: BrowserContext) -> BrowserErrorC
     return BrowserErrorCapture(page, context)
 
 
-def assert_no_errors(capture: BrowserErrorCapture, test_name: str = ""):
+def assert_no_errors(
+    capture: BrowserErrorCapture,
+    test_name: str = "",
+    ignore_patterns: Optional[List[str]] = None,
+):
     """Assert that no errors occurred during test"""
+    if ignore_patterns is None:
+        ignore_patterns = []
+
     summary = capture.get_error_summary()
 
     critical_errors = []
@@ -219,7 +226,12 @@ def assert_no_errors(capture: BrowserErrorCapture, test_name: str = ""):
     warnings = []
     for msg in summary["console_messages"]:
         if msg["level"] in ["warn", "error"]:
-            warnings.append(f"Console {msg['level']}: {msg['text']}")
+            # Check if this message should be ignored
+            for pattern in ignore_patterns:
+                if pattern in msg["text"]:
+                    break
+            else:  # No break occurred, so not ignored
+                warnings.append(f"Console {msg['level']}: {msg['text']}")
 
     if warnings:
         error_msg = f"Warnings found in {test_name}:\n" + "\n".join(warnings)
