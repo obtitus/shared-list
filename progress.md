@@ -15,8 +15,7 @@
 - [x] When the server connects and disconnects, don't show the "Real-time updates" banner, simply toggle the connection-status indicator.
 - [x] Add missing favicon.ico
 - [x] Ensure all unittests use logging (keep it a simple stdout log) consistently
-- [ ] Implement service worker for iOS "Add to Home Screen"
-- [ ] Setup Ultra.cc deployment script
+- [x] Setup apoc.usbx.me deployment script
 
 ## Done
 - [x] Project initialization and `.clinerules` setup

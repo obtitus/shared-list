@@ -1,4 +1,4 @@
-.PHONY: run test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright icons
+.PHONY: run test lint docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright icons deploy
 
 run:
 	uv run app/main.py
@@ -61,3 +61,7 @@ icons:
 	convert app/static/icons/shopping-cart-500x500.png -resize 512x512 app/static/icons/icon-512x512.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 1024x1024 app/static/icons/icon-1024x1024.png
 	convert app/static/icons/shopping-cart-500x500.png -resize 640x1136 app/static/icons/splash-640x1136.png
+
+# Deploy to production server
+deploy:
+	./deploy.sh
