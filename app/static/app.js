@@ -295,7 +295,7 @@ async function handleAddItem(e) {
         return;
     }
 
-    const name = elements.itemNameInput.value.trim();
+    let name = elements.itemNameInput.value.trim();
     const quantity = parseInt(elements.itemQuantityInput.value, 10);
 
     if (quantity <= 0) {
@@ -303,8 +303,7 @@ async function handleAddItem(e) {
         return;
     }
 
-    // Allow empty names for visual spacers
-    name = name.trim();
+    // Allow empty names for visual spacers (name is already trimmed)
 
     setLoading(true);
 

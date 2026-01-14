@@ -7,7 +7,6 @@ run:
 test:
 	$(MAKE) docker-down
 	-pkill -f app/main.py
-	sleep 10
 	uv run python -m unittest discover tests --failfast 2>&1 | tee unittest.log
 	$(MAKE) test-playwright
 	@echo "=== Unittest Summary ==="

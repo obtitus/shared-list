@@ -38,6 +38,20 @@ class EventBroadcaster:
                 # Remove dead listeners
                 self.listeners.remove(queue)
 
+    async def shutdown(self):
+        """Clean shutdown - close all connections"""
+        shutdown_event = {
+            "type": "shutdown",
+            "message": "Server is shutting down",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        # Broadcast shutdown event to all listeners
+        await self.broadcast(shutdown_event)
+
+        # Clear all listeners to force SSE connections to close
+        self.listeners.clear()
+
 
 # Global broadcaster instance
 broadcaster = EventBroadcaster()
@@ -50,7 +64,8 @@ async def lifespan(app: FastAPI):
     init_db()
     create_sample_data()
     yield
-    # Shutdown - nothing special needed
+    # Shutdown - clean up SSE connections
+    await broadcaster.shutdown()
 
 
 # Pydantic models
@@ -461,6 +476,12 @@ async def events() -> StreamingResponse:
                 try:
                     # Wait for event with timeout
                     event_data = await asyncio.wait_for(queue.get(), timeout=30)
+
+                    # Check for shutdown event
+                    if event_data.get("type") == "shutdown":
+                        # Send shutdown notification and close connection
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                        break
 
                     # Send the event
                     yield f"data: {json.dumps(event_data)}\n\n"
