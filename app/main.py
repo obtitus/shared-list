@@ -7,10 +7,22 @@ from pydantic import BaseModel
 import os
 import asyncio
 import json
+import tomllib
 from datetime import datetime
 from contextlib import asynccontextmanager
 
 from database import get_db, init_db, create_sample_data
+
+
+def get_app_version() -> str:
+    """Read the app version from pyproject.toml"""
+    try:
+        with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+        return data["project"]["version"]
+    except (FileNotFoundError, KeyError):
+        # Fallback to a default version if pyproject.toml is not found or malformed
+        return "0.0.0"
 
 
 # Event broadcasting system
@@ -106,7 +118,7 @@ class Item(ItemBase):
 app = FastAPI(
     title="Shared Shopping List API",
     description="A simple shopping list API with SQLite backend",
-    version="1.0.0",
+    version=get_app_version(),
     lifespan=lifespan,
 )
 
@@ -120,7 +132,9 @@ templates = Jinja2Templates(directory="app/templates")
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
     """Serve the PWA frontend"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "version": get_app_version()}
+    )
 
 
 @app.get("/api", response_model=dict)

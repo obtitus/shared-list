@@ -735,6 +735,10 @@ body {
         max-height: 50vh;
     }
 
+    .shopping-list-section {
+        padding: var(--spacing-md);
+    }
+
     .toast-container {
         bottom: var(--spacing-md);
         right: var(--spacing-md);
@@ -747,8 +751,21 @@ body {
 }
 
 @media (max-width: 480px) {
+    .main-content {
+        padding: var(--spacing-sm);
+        gap: var(--spacing-sm);
+    }
+
+    .shopping-list-section {
+        padding: var(--spacing-sm);
+    }
+
     .app-title {
         font-size: var(--font-size-lg);
+    }
+
+    .app-header {
+        padding: var(--spacing-sm);
     }
 
     .list-item {
@@ -757,6 +774,9 @@ body {
 
     .item-name {
         font-size: var(--font-size-base);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
     }
 
     .add-btn {
