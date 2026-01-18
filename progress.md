@@ -9,7 +9,7 @@
 - [x] Add a robots.txt and any other simple tricks to avoid crawlers finding and indexing this page, altough security is not a major concern, anyone with a link can edit this list and I would like to avoid bots doing that.
 - [x] Reduce the SSE connection retries (especially when the server is actually oflline, there is no need to constantly refresh) and delay the initial SSE connection so the page fully loads before a connection attempt is made
 - [x] Have the database name depend on the port number, migration is not needed.
-- [ ] Test are slow now as they need to run serially especially the `npx playwright test tests/basic-pwa.spec.ts`, ensure tests can write into unique databases.
+- [x] Test are slow now as they need to run serially especially the `npx playwright test tests/basic-pwa.spec.ts`, ensure tests can write into unique databases so each project can run with its own instance.
 
 ## Done
 - [x] Project initialization and `.clinerules` setup

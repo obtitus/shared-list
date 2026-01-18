@@ -14,9 +14,9 @@ test:
 
 
 
-# TypeScript Playwright testing
+# TypeScript Playwright testing, configured in package.json and playwright.config.ts
 test-playwright:
-	npx playwright test tests/basic-pwa.spec.ts
+	npm run test
 
 # stop the build if there are Python syntax errors or undefined names
 # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide

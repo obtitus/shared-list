@@ -12,15 +12,16 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './tests',
-  /* Run tests in files in parallel */
-  fullyParallel: false, // Changed to false to run tests serially
+  testDir: '../',
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: 1, // Changed to 1 to run tests serially
+  /* Allow parallel workers for projects to run in parallel */
+  workers: process.env.CI ? 1 : undefined, // Use default workers for local parallel execution
+  /* Global setup/teardown for test servers */
+  globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? 'json' : 'list',
   /* Stop test execution on first failure */
@@ -43,35 +44,63 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      fullyParallel: false, // Tests within chromium run serially
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://localhost:8001',
+      },
     },
 
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      fullyParallel: false, // Tests within firefox run serially
+      use: {
+        ...devices['Desktop Firefox'],
+        baseURL: 'http://localhost:8002',
+      },
     },
 
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      fullyParallel: false, // Tests within webkit run serially
+      use: {
+        ...devices['Desktop Safari'],
+        baseURL: 'http://localhost:8003',
+      },
     },
 
     /* Test against mobile viewports. */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      fullyParallel: false, // Tests within Mobile Chrome run serially
+      use: {
+        ...devices['Pixel 5'],
+        baseURL: 'http://localhost:8004',
+      },
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      fullyParallel: false, // Tests within Mobile Safari run serially
+      use: {
+        ...devices['iPhone 12'],
+        baseURL: 'http://localhost:8005',
+      },
     },
     {
       name: 'iPhone SE',
-      use: { ...devices['iPhone SE'] },
+      fullyParallel: false, // Tests within iPhone SE run serially
+      use: {
+        ...devices['iPhone SE'],
+        baseURL: 'http://localhost:8006',
+      },
     },
     {
       name: 'iPhone XR',
-      use: { ...devices['iPhone XR'] },
+      fullyParallel: false, // Tests within iPhone XR run serially
+      use: {
+        ...devices['iPhone XR'],
+        baseURL: 'http://localhost:8007',
+      },
     },
 
     /* Test against branded browsers. */
@@ -85,11 +114,5 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'uv run python app/main.py',
-    url: 'http://localhost:8000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60 * 1000,
-  },
+
 });

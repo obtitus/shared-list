@@ -15,6 +15,7 @@ test-results/
 
 #
 unittest.log
+*.pid
 
 # Environment variables
 .env

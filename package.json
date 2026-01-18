@@ -2,8 +2,8 @@
   "name": "shared-list-playwright",
   "description": "Playwright tests for Shared Shopping List PWA",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test": "playwright test --config tests/playwright/playwright.config.ts",
+    "test:headed": "playwright test --config tests/playwright/playwright.config.ts --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
