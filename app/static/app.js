@@ -21,30 +21,37 @@ let hourlyRefreshTimer = null;
 let clientId = null;
 let selectedItemId = null;
 
-// DOM Elements
-const elements = {
-    shoppingList: document.getElementById('shoppingList'),
-    emptyState: document.getElementById('emptyState'),
-    addItemForm: document.getElementById('addItemForm'),
-    itemNameInput: document.getElementById('itemName'),
-    itemQuantityInput: document.getElementById('itemQuantity'),
-    connectionStatus: document.getElementById('connectionStatus'),
-    statusDot: document.querySelector('.status-dot'),
-    clearBtn: document.getElementById('clearBtn'),
-    refreshBtn: document.getElementById('refreshBtn'),
-    exportBtn: document.getElementById('exportBtn'),
-    importBtn: document.getElementById('importBtn'),
-    importModal: document.getElementById('importModal'),
-    importText: document.getElementById('importText'),
-    importCancel: document.getElementById('importCancel'),
-    importConfirm: document.getElementById('importConfirm'),
-    importModalClose: document.getElementById('importModalClose'),
-    toastContainer: document.getElementById('toastContainer'),
-    loadingOverlay: document.getElementById('loadingOverlay')
-};
+// DOM Elements (lazy-loaded)
+let elements = null;
+
+function getElements() {
+    if (!elements) {
+        elements = {
+            shoppingList: document.getElementById('shoppingList'),
+            emptyState: document.getElementById('emptyState'),
+            addItemForm: document.getElementById('addItemForm'),
+            itemNameInput: document.getElementById('itemName'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            statusDot: document.querySelector('.status-dot'),
+            clearBtn: document.getElementById('clearBtn'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            exportBtn: document.getElementById('exportBtn'),
+            importBtn: document.getElementById('importBtn'),
+            importModal: document.getElementById('importModal'),
+            importText: document.getElementById('importText'),
+            importCancel: document.getElementById('importCancel'),
+            importConfirm: document.getElementById('importConfirm'),
+            importModalClose: document.getElementById('importModalClose'),
+            toastContainer: document.getElementById('toastContainer'),
+            loadingOverlay: document.getElementById('loadingOverlay')
+        };
+    }
+    return elements;
+}
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+    elements = getElements(); // Initialize elements when DOM is ready
     initializeClientId();
     initializeEventListeners();
     loadListInfo();
@@ -76,13 +83,23 @@ function initializeClientId() {
  */
 function initializeEventListeners() {
     // Form submission
-    elements.addItemForm.addEventListener('submit', handleAddItem);
+    if (elements.addItemForm) {
+        elements.addItemForm.addEventListener('submit', handleAddItem);
+    }
 
     // Button actions
-    elements.clearBtn.addEventListener('click', handleClearAll);
-    elements.refreshBtn.addEventListener('click', handleRefresh);
-    elements.exportBtn.addEventListener('click', handleExport);
-    elements.importBtn.addEventListener('click', handleImport);
+    if (elements.clearBtn) {
+        elements.clearBtn.addEventListener('click', handleClearAll);
+    }
+    if (elements.refreshBtn) {
+        elements.refreshBtn.addEventListener('click', handleRefresh);
+    }
+    if (elements.exportBtn) {
+        elements.exportBtn.addEventListener('click', handleExport);
+    }
+    if (elements.importBtn) {
+        elements.importBtn.addEventListener('click', handleImport);
+    }
 
     // List title editing
     const listTitleElement = document.querySelector('.list-title');
@@ -104,20 +121,29 @@ function initializeEventListeners() {
     });
 
     // Input validation
-    elements.itemNameInput.addEventListener('input', validateForm);
-    elements.itemQuantityInput.addEventListener('input', validateForm);
+    if (elements.itemNameInput) {
+        elements.itemNameInput.addEventListener('input', validateForm);
+    }
 
     // Import modal event listeners
-    elements.importModalClose.addEventListener('click', closeImportModal);
-    elements.importCancel.addEventListener('click', closeImportModal);
-    elements.importConfirm.addEventListener('click', handleImportConfirm);
+    if (elements.importModalClose) {
+        elements.importModalClose.addEventListener('click', closeImportModal);
+    }
+    if (elements.importCancel) {
+        elements.importCancel.addEventListener('click', closeImportModal);
+    }
+    if (elements.importConfirm) {
+        elements.importConfirm.addEventListener('click', handleImportConfirm);
+    }
 
     // Close modal when clicking outside
-    elements.importModal.addEventListener('click', (e) => {
-        if (e.target === elements.importModal) {
-            closeImportModal();
-        }
-    });
+    if (elements.importModal) {
+        elements.importModal.addEventListener('click', (e) => {
+            if (e.target === elements.importModal) {
+                closeImportModal();
+            }
+        });
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
@@ -296,12 +322,6 @@ async function handleAddItem(e) {
     }
 
     let name = elements.itemNameInput.value.trim();
-    const quantity = parseInt(elements.itemQuantityInput.value, 10);
-
-    if (quantity <= 0) {
-        showToast('Please enter a valid quantity', 'error');
-        return;
-    }
 
     // Allow empty names for visual spacers (name is already trimmed)
 
@@ -310,7 +330,7 @@ async function handleAddItem(e) {
     try {
         const payload = {
             name: name,
-            quantity: quantity,
+            quantity: 1,
             completed: false
         };
 
@@ -347,7 +367,6 @@ async function handleAddItem(e) {
 
         // Reset form
         elements.addItemForm.reset();
-        elements.itemQuantityInput.value = '1';
 
         showToast('Item added successfully', 'success');
     } catch (error) {
@@ -704,7 +723,6 @@ function renderShoppingList() {
 
             <div class="item-content">
                 <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
-                <span class="item-quantity">${item.quantity}</span>
             </div>
 
             <div class="item-actions">
@@ -785,12 +803,12 @@ function setLoading(loading) {
  * Validate Form
  */
 function validateForm() {
-    const name = elements.itemNameInput.value.trim();
-    const quantity = parseInt(elements.itemQuantityInput.value, 10);
-
-    // Allow empty names for visual spacers, just require valid quantity
-    const isValid = quantity > 0;
-    elements.addItemForm.querySelector('.add-btn').disabled = !isValid;
+    // Allow empty names for visual spacers, no quantity validation needed
+    // Button is always enabled since quantity is always 1
+    const addBtn = elements.addItemForm.querySelector('.add-btn');
+    if (addBtn) {
+        addBtn.disabled = false;
+    }
 }
 
 /**

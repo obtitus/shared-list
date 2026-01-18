@@ -1,7 +1,11 @@
 # Project Progress
 
 ## To-Do
-- [x] On a small IOS display the item description get shortened with ..., remove this and use multiple lines instead. At least for small displays, get rid of the wasted padding on the edges.
+- [x] Remove item-quantity from the frontend, set it to 1 when adding items to the database.
+- [ ] Remove the "Delete" text on the delete-btn, leaving only the Wastebasket emoji. Simplify "Clear All" to "Clear".
+- [ ] Make item-name editable, maybe with a new edit button (use emoji only).
+- [ ] Improve caching behavior when changes are made by e.g. modify template to `<script src="{{ url_for('static', path='/app.js') }}?v={{ version }}"></script>`.
+- [ ] Add a robots.txt and any other simple tricks to avoid crawlers finding and indexing this page, altough security is not a major concern, anyone with a link can edit this list and I would like to avoid bots doing that.
 
 ## Done
 - [x] Project initialization and `.clinerules` setup
@@ -23,3 +27,4 @@
 - [x] When adding an item, make it simple to select where in the list it appears. One solution could be to allow the user to select existing items in the list and inserting above the selected item.
 - [x] Add clipboard-based import/export feature with iOS-compatible Web Share API, supporting plain text format (one item per row) with flexible parsing for quantities and bullet points.
 - [x] Allow empty items, they work nicely as a visual spacer
+- [x] On a small IOS display the item description get shortened with ..., remove this and use multiple lines instead. At least for small displays, get rid of the wasted padding on the edges.

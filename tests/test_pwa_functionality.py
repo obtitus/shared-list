@@ -110,7 +110,6 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Fill out the form
         self.page.fill("#itemName", "Test Item")
-        self.page.fill("#itemQuantity", "3")
 
         # Submit the form
         self.page.click(".add-btn")
@@ -125,20 +124,15 @@ class TestShoppingListPWA(unittest.TestCase):
             new_count, initial_count + 1, "Item was not added to the list"
         )
 
-        # Check that the item has the correct name and quantity
+        # Check that the item has the correct name
         item_name = self.page.locator(".list-item:last-child .item-name").inner_text()
-        item_quantity = self.page.locator(
-            ".list-item:last-child .item-quantity"
-        ).inner_text()
 
         self.assertEqual(
             item_name, "Test Item", f"Expected 'Test Item', got '{item_name}'"
         )
-        self.assertEqual(item_quantity, "3", f"Expected '3', got '{item_quantity}'")
 
         # Check that the form was reset
         self.assertEqual(self.page.locator("#itemName").input_value(), "")
-        self.assertEqual(self.page.locator("#itemQuantity").input_value(), "1")
 
         # Assert no errors occurred during item addition
         assert_no_errors(self.browser_errors, "test_add_item_functionality")
@@ -148,7 +142,6 @@ class TestShoppingListPWA(unittest.TestCase):
         # Add an item first with a unique identifier
         unique_name = f"Toggle Test Item {self.page.evaluate('Date.now()')}"
         self.page.fill("#itemName", unique_name)
-        self.page.fill("#itemQuantity", "1")
         self.page.click(".add-btn")
         self.page.wait_for_selector(".list-item", timeout=5000)
 
@@ -191,7 +184,6 @@ class TestShoppingListPWA(unittest.TestCase):
         """Test deleting items from the shopping list"""
         # Add an item first
         self.page.fill("#itemName", "Delete Test Item")
-        self.page.fill("#itemQuantity", "1")
         self.page.click(".add-btn")
         self.page.wait_for_timeout(1000)
 
@@ -216,7 +208,7 @@ class TestShoppingListPWA(unittest.TestCase):
         # Add a few items first
         for i in range(3):
             self.page.fill("#itemName", f"Clear Test Item {i+1}")
-            self.page.fill("#itemQuantity", "1")
+            # Quantity input removed
             self.page.click(".add-btn")
             self.page.wait_for_timeout(1000)
 
@@ -257,7 +249,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Try to add an item while offline (should show error)
         self.page.fill("#itemName", "Offline Test Item")
-        self.page.fill("#itemQuantity", "1")
+        # Quantity input removed
         self.page.click(".add-btn")
 
         # Check for error toast
@@ -316,7 +308,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Add an item using Enter
         self.page.fill("#itemName", "Keyboard Test Item")
-        self.page.fill("#itemQuantity", "2")
+        # Quantity input removed
         self.page.keyboard.press("Enter")
 
         # Wait for the item to appear
@@ -342,7 +334,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Add an item
         self.page.fill("#itemName", "Empty State Test")
-        self.page.fill("#itemQuantity", "1")
+        # Quantity input removed
         self.page.click(".add-btn")
         self.page.wait_for_selector(".list-item", timeout=5000)
 
@@ -352,33 +344,24 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_form_validation(self):
         """Test form validation"""
-        # Test with empty name and valid quantity (allowed for visual spacers)
+        # Test with empty name (allowed for visual spacers)
         self.page.fill("#itemName", "")
-        self.page.fill("#itemQuantity", "1")
 
         # Check that add button is enabled (empty names allowed for spacers)
         add_button = self.page.locator(".add-btn")
         self.assertFalse(add_button.is_disabled())
 
-        # Test with valid name and quantity
+        # Test with valid name
         self.page.fill("#itemName", "Test Item")
-        self.page.fill("#itemQuantity", "2")
 
         # Check that add button is enabled
         self.assertFalse(add_button.is_disabled())
-
-        # Test with invalid quantity (should be disabled regardless of name)
-        self.page.fill("#itemName", "Test Item")
-        self.page.fill("#itemQuantity", "0")
-
-        # Check that add button is disabled
-        self.assertTrue(add_button.is_disabled())
 
     def test_toast_notifications(self):
         """Test toast notification system"""
         # Add an item to trigger a success toast
         self.page.fill("#itemName", "Toast Test Item")
-        self.page.fill("#itemQuantity", "1")
+        # Quantity input removed
         self.page.click(".add-btn")
 
         # Wait for the item-added success toast (not the SSE connection toast)
@@ -399,7 +382,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.wait_for_timeout(1000)
 
         self.page.fill("#itemName", "Offline Toast Test")
-        self.page.fill("#itemQuantity", "1")
+        # Quantity input removed
         self.page.click(".add-btn")
 
         # Wait for error toast
@@ -420,7 +403,7 @@ class TestShoppingListPWA(unittest.TestCase):
         # Add three items first
         for i in range(3):
             self.page.fill("#itemName", f"Item {i+1}")
-            self.page.fill("#itemQuantity", "1")
+            # Quantity input removed
             self.page.click(".add-btn")
             self.page.wait_for_timeout(1000)
 
@@ -438,7 +421,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Add a new item with selection active
         self.page.fill("#itemName", "New Item")
-        self.page.fill("#itemQuantity", "2")
+        # Quantity input removed
         self.page.click(".add-btn")
 
         # Wait for the item to appear
@@ -447,10 +430,6 @@ class TestShoppingListPWA(unittest.TestCase):
         # Verify new order: Item 1, New Item, Item 2, Item 3
         updated_items = self.page.locator(".list-item .item-name").all_text_contents()
         self.assertEqual(updated_items, ["Item 1", "New Item", "Item 2", "Item 3"])
-
-        # Check quantities
-        quantities = self.page.locator(".list-item .item-quantity").all_text_contents()
-        self.assertEqual(quantities, ["1", "2", "1", "1"])
 
         # Verify selection is cleared after adding
         selected_items = self.page.locator(".list-item.selected").all()
@@ -480,18 +459,13 @@ class TestShoppingListPWA(unittest.TestCase):
         form = self.page.locator("#addItemForm")
         self.assertTrue(form.is_visible())
 
-        # Check that inputs are large enough
+        # Check that input is large enough
         item_name = self.page.locator("#itemName")
-        item_quantity = self.page.locator("#itemQuantity")
 
         name_height = item_name.evaluate("el => el.offsetHeight")
-        quantity_height = item_quantity.evaluate("el => el.offsetHeight")
 
         self.assertGreaterEqual(
             name_height, 40, "Name input should be large enough for mobile"
-        )
-        self.assertGreaterEqual(
-            quantity_height, 40, "Quantity input should be large enough for mobile"
         )
 
     def test_add_to_home_screen_prompt(self):
@@ -587,7 +561,6 @@ class TestShoppingListPWA(unittest.TestCase):
 
             # Add an item from page1
             page1.fill("#itemName", "Real-time Test Item")
-            page1.fill("#itemQuantity", "2")
             page1.click(".add-btn")
 
             # Wait for the item to appear in page1
@@ -604,12 +577,8 @@ class TestShoppingListPWA(unittest.TestCase):
             item_name = page2.locator(
                 '.list-item:has-text("Real-time Test Item") .item-name'
             ).inner_text()
-            item_quantity = page2.locator(
-                '.list-item:has-text("Real-time Test Item") .item-quantity'
-            ).inner_text()
 
             self.assertEqual(item_name, "Real-time Test Item")
-            self.assertEqual(item_quantity, "2")
 
             # Verify counts updated in both pages
             final_count1 = len(page1.locator(".list-item").all())
@@ -710,7 +679,6 @@ class TestShoppingListPWA(unittest.TestCase):
 
         for item in test_items:
             self.page.fill("#itemName", item["name"])
-            self.page.fill("#itemQuantity", str(item["quantity"]))
             self.page.click(".add-btn")
             self.page.wait_for_timeout(1000)
 
@@ -776,26 +744,14 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Verify new items were added
         all_items = self.page.locator(".list-item .item-name").all_text_contents()
-        all_quantities = self.page.locator(
-            ".list-item .item-quantity"
-        ).all_text_contents()
 
         # Check that new items are present
         self.assertIn("New Milk", all_items)
         self.assertIn("New Bread", all_items)
         self.assertIn("New Eggs", all_items)
 
-        # Check quantities
-        milk_index = all_items.index("New Milk")
-        bread_index = all_items.index("New Bread")
-        eggs_index = all_items.index("New Eggs")
-
-        self.assertEqual(all_quantities[milk_index], "3")
-        self.assertEqual(all_quantities[bread_index], "1")
-        self.assertEqual(all_quantities[eggs_index], "1")
-
         # Check completion status for New Bread (should be completed)
-        bread_item = self.page.locator(".list-item").nth(bread_index)
+        bread_item = self.page.locator('.list-item:has-text("New Bread")')
         bread_class = bread_item.get_attribute("class") or ""
         self.assertIn("completed", bread_class)
 

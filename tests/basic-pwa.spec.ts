@@ -63,7 +63,7 @@ test.describe('Basic PWA Functionality', () => {
   test('should add an item to the shopping list', async ({ page }) => {
     // Fill in the form
     await page.fill('#itemName', 'Test Item');
-    await page.fill('#itemQuantity', '2');
+
 
     // Submit the form
     await page.click('.add-btn');
@@ -73,16 +73,14 @@ test.describe('Basic PWA Functionality', () => {
 
     // Check the item was added (use first to avoid SSE duplicates)
     const itemText = await page.locator('.list-item .item-name').first().textContent();
-    const itemQuantity = await page.locator('.list-item .item-quantity').first().textContent();
 
     expect(itemText).toBe('Test Item');
-    expect(itemQuantity).toBe('2');
   });
 
   test('should toggle item completion', async ({ page }) => {
     // Add an item first
     await page.fill('#itemName', 'Toggle Test');
-    await page.fill('#itemQuantity', '1');
+
     await page.click('.add-btn');
     await page.waitForSelector('.list-item');
 
@@ -117,7 +115,7 @@ test.describe('Basic PWA Functionality', () => {
   test('should delete an item', async ({ page }) => {
     // Add an item first
     await page.fill('#itemName', 'Delete Test');
-    await page.fill('#itemQuantity', '1');
+
     await page.click('.add-btn');
     await page.waitForSelector('.list-item');
 
@@ -137,7 +135,7 @@ test.describe('Basic PWA Functionality', () => {
   test('should be responsive on mobile', async ({ page }) => {
     // Add an item
     await page.fill('#itemName', 'Mobile Test');
-    await page.fill('#itemQuantity', '1');
+
     await page.click('.add-btn');
     await page.waitForSelector('.list-item');
 
@@ -151,7 +149,7 @@ test.describe('Basic PWA Functionality', () => {
     // Add multiple items
     for (let i = 1; i <= 3; i++) {
       await page.fill('#itemName', `Drag Test Item ${i}`);
-      await page.fill('#itemQuantity', '1');
+
       await page.click('.add-btn');
       await page.waitForSelector('#loadingOverlay', { state: 'hidden' });
       await page.waitForTimeout(200);
@@ -212,7 +210,7 @@ test.describe('Basic PWA Functionality', () => {
     const itemNames = ['First Item', 'Second Item', 'Third Item'];
     for (const name of itemNames) {
       await page.fill('#itemName', name);
-      await page.fill('#itemQuantity', '1');
+
       await page.click('.add-btn');
       await page.waitForTimeout(200);
     }
