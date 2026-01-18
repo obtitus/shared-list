@@ -19,7 +19,8 @@ echo "Deploying shared-list to $DEPLOY_HOST..."
 ssh "$DEPLOY_HOST" << EOF
     echo "Updating code in $DEPLOY_DIR..."
     cd "$DEPLOY_DIR"
-    git pull origin main
+    git fetch origin
+    git reset --hard origin/main
 
     if ! command -v $DEPLOY_UV &> /dev/null; then
         echo "Installing uv..."
