@@ -14,7 +14,7 @@ node_modules/
 test-results/
 
 #
-unittest.log
+*.log
 *.pid
 
 # Environment variables

@@ -28,6 +28,7 @@ class ServerManager:
         self.port = port
         self.server_process: Optional[subprocess.Popen] = None
         self.server_docker_started = False
+        self.docker_env = None  # Store Docker environment variables
 
     def check_server_running(self, timeout: int = 5) -> bool:
         """Check if server is already running on the specified port"""
@@ -51,9 +52,11 @@ class ServerManager:
 
         logger.info("🚀 Starting API server with uv run...")
         try:
-            # Start server in background
+            # Start server in background with custom port
+            env = os.environ.copy()
+            env["PORT"] = str(self.port)
             self.server_process = subprocess.Popen(
-                ["uv", "run", "python", "app/main.py"]
+                ["uv", "run", "python", "app/main.py"], env=env
             )
 
             # Wait for server to start
@@ -83,12 +86,18 @@ class ServerManager:
             # Clean up any existing containers first
             self._cleanup_docker_containers()
 
-            # Start Docker container
+            # Start Docker container with custom port and unique name
+            env = os.environ.copy()
+            env["PORT"] = str(self.port)
+            env["HOST_PORT"] = str(self.port)  # For docker-compose port mapping
+            env["COMPOSE_PROJECT_NAME"] = f"test-{self.port}"  # Unique project name
+
             result = subprocess.run(
                 ["docker", "compose", "up", "-d"],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                env=env,
             )
 
             if result.returncode != 0:
@@ -226,19 +235,19 @@ class TestServerManager:
     """Factory class for creating appropriate server managers for different test types"""
 
     @staticmethod
-    def for_api_tests() -> ServerManager:
+    def for_api_tests(port: int = 8010) -> ServerManager:
         """Create server manager for API tests"""
-        return ServerManager()
+        return ServerManager(f"http://localhost:{port}", port)
 
     @staticmethod
-    def for_docker_tests() -> ServerManager:
+    def for_docker_tests(port: int = 8011) -> ServerManager:
         """Create server manager for Docker tests"""
-        return ServerManager()
+        return ServerManager(f"http://localhost:{port}", port)
 
     @staticmethod
-    def for_pwa_tests() -> ServerManager:
+    def for_pwa_tests(port: int = 8012) -> ServerManager:
         """Create server manager for PWA tests"""
-        return ServerManager()
+        return ServerManager(f"http://localhost:{port}", port)
 
 
 def ensure_server_available(

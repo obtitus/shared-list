@@ -35,6 +35,7 @@ class TestDockerSetup(unittest.TestCase):
 
         # Setup server manager
         cls.server_manager = TestServerManager.for_docker_tests()
+        cls.BASE_URL = cls.server_manager.base_url
 
         # Start Docker container if not already running
         if not cls.server_manager.check_server_running():
@@ -61,7 +62,7 @@ class TestDockerSetup(unittest.TestCase):
         logger.info("🏥 Testing API health check...")
 
         # Test root endpoint
-        response = requests.get("http://localhost:8000/api", timeout=10)
+        response = requests.get(f"{self.BASE_URL}/api", timeout=10)
         self.assertEqual(response.status_code, 200, "Root endpoint failed")
 
         data = response.json()
@@ -71,7 +72,7 @@ class TestDockerSetup(unittest.TestCase):
         logger.info("✅ Root endpoint working")
 
         # Test items endpoint
-        response = requests.get("http://localhost:8000/items", timeout=10)
+        response = requests.get(f"{self.BASE_URL}/items", timeout=10)
         self.assertEqual(response.status_code, 200, "Items endpoint failed")
 
         items = response.json()

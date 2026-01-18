@@ -17,4 +17,4 @@ for port in {8001..8007}; do
   fi
 done
 
-echo "All test servers stopped"
+sleep 5

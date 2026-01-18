@@ -32,7 +32,8 @@ class TestShoppingListPWA(unittest.TestCase):
             sys.exit(1)
 
         # Setup server manager
-        cls.server_manager = TestServerManager.for_docker_tests()
+        cls.server_manager = TestServerManager.for_pwa_tests()
+        cls.BASE_URL = cls.server_manager.base_url
 
         # Start Docker container if not already running
         if not cls.server_manager.check_server_running():
@@ -67,7 +68,7 @@ class TestShoppingListPWA(unittest.TestCase):
         """Setup for each test"""
         # Navigate to the PWA
         self.page = self.context.new_page()
-        self.page.goto("http://localhost:8000")
+        self.page.goto(self.BASE_URL)
         # Setup browser error capture
         self.browser_errors = capture_browser_errors(self.page, self.context)
 
@@ -275,7 +276,7 @@ class TestShoppingListPWA(unittest.TestCase):
     def test_pwa_manifest_and_service_worker(self):
         """Test PWA manifest and service worker registration"""
         # Check that the manifest is accessible
-        response = self.page.request.get("http://localhost:8000/static/manifest.json")
+        response = self.page.request.get(f"{self.BASE_URL}/static/manifest.json")
         self.assertEqual(response.status, 200, "Manifest should be accessible")
 
         manifest = response.json()
@@ -552,8 +553,8 @@ class TestShoppingListPWA(unittest.TestCase):
 
         try:
             # Navigate both pages to the app
-            page1.goto("http://localhost:8000")
-            page2.goto("http://localhost:8000")
+            page1.goto(self.BASE_URL)
+            page2.goto(self.BASE_URL)
 
             # Wait for both apps to initialize
             page1.wait_for_selector("#shoppingList", state="attached", timeout=10000)
