@@ -3,8 +3,14 @@ import os
 from contextlib import contextmanager
 from typing import Generator
 
+
+def get_port() -> int:
+    """Get the port number from environment variable"""
+    return int(os.getenv("PORT", 8000))
+
+
 # Database configuration
-DATABASE_PATH = os.path.join(os.path.dirname(__file__), "data", "shopping.db")
+DATABASE_PATH = os.path.join(os.path.dirname(__file__), "data", f"data_{get_port()}.db")
 
 
 @contextmanager

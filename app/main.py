@@ -11,7 +11,7 @@ import tomllib
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from database import get_db, init_db, create_sample_data
+from database import get_db, init_db, create_sample_data, get_port
 
 
 def get_app_version() -> str:
@@ -535,7 +535,7 @@ if __name__ == "__main__":
 
     # Get host and port from environment variables or use defaults
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 8000))
+    port = get_port()
 
     print(f"Starting server on {host}:{port}")
     uvicorn.run("app.main:app", host=host, port=port, reload=False)
