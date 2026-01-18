@@ -712,7 +712,7 @@ function renderShoppingList() {
         listItem.onclick = () => handleSelectItem(item.id);
 
         listItem.innerHTML = `
-            <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${item.id})" ontouchstart="handleTouchStart(event, ${item.id})" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd(event)" title="Drag to reorder">
+            <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${item.id})" title="Drag to reorder">
                 ⋮⋮
             </div>
 
@@ -732,6 +732,14 @@ function renderShoppingList() {
                 </button>
             </div>
         `;
+
+        // Add passive touch event listeners for better scrolling performance
+        const dragHandle = listItem.querySelector('.drag-handle');
+        if (dragHandle) {
+            dragHandle.addEventListener('touchstart', (e) => handleTouchStart(e, item.id), { passive: false });
+            dragHandle.addEventListener('touchmove', handleTouchMove, { passive: false });
+            dragHandle.addEventListener('touchend', handleTouchEnd, { passive: true });
+        }
 
         elements.shoppingList.appendChild(listItem);
     });
