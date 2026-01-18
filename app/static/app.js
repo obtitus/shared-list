@@ -20,6 +20,8 @@ let eventSource = null;
 let hourlyRefreshTimer = null;
 let clientId = null;
 let selectedItemId = null;
+let sseRetryCount = 0;
+let sseRetryTimeout = null;
 
 // DOM Elements (lazy-loaded)
 let elements = null;
@@ -57,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadListInfo();
     loadShoppingList();
     updateConnectionStatus();
-    connectToSSE();
+    setupSSE();
     setupHourlyRefresh();
 });
 
@@ -112,12 +114,26 @@ function initializeEventListeners() {
         isOnline = true;
         updateConnectionStatus();
         loadShoppingList();
+
+        // Reset SSE retry count when coming back online
+        sseRetryCount = 0;
+        if (!eventSource && !sseRetryTimeout) {
+            // Try to reconnect immediately if not already connected
+            setTimeout(() => connectToSSE(), 1000);
+        }
     });
 
     window.addEventListener('offline', () => {
         isOnline = false;
         updateConnectionStatus();
         showToast('You are now offline. Changes will sync when connection is restored.', 'warning');
+
+        // Clear any pending retry timeouts when going offline
+        if (sseRetryTimeout) {
+            clearTimeout(sseRetryTimeout);
+            sseRetryTimeout = null;
+        }
+        sseRetryCount = 0;
     });
 
     // Input validation
@@ -1281,12 +1297,29 @@ function connectToSSE() {
                 eventSource = null;
             }
 
-            // Try to reconnect after a delay
-            setTimeout(() => {
-                if (isOnline) {
-                    connectToSSE();
-                }
-            }, 5000);
+            // Clear any existing retry timeout
+            if (sseRetryTimeout) {
+                clearTimeout(sseRetryTimeout);
+                sseRetryTimeout = null;
+            }
+
+            // Implement exponential backoff with max 1 minute
+            if (isOnline) {
+                sseRetryCount++;
+                // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, then max 60s
+                const delay = Math.min(1000 * Math.pow(2, Math.min(sseRetryCount - 1, 6)), 60000);
+
+                console.log(`SSE retry ${sseRetryCount} in ${delay}ms`);
+
+                sseRetryTimeout = setTimeout(() => {
+                    if (isOnline) {
+                        connectToSSE();
+                    }
+                }, delay);
+            } else {
+                // Reset retry count when offline
+                sseRetryCount = 0;
+            }
         };
 
     } catch (error) {
@@ -1447,6 +1480,20 @@ function handleListUpdated(data) {
         updateListTitle();
         showToast('List name updated from another device', 'info');
     }
+}
+
+/**
+ * Setup SSE connection with delayed initialization and smart retry logic
+ */
+function setupSSE() {
+    // Delay SSE connection until page fully loads to improve initial performance
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            if (isOnline) {
+                connectToSSE();
+            }
+        }, 500); // Small additional delay after page load
+    });
 }
 
 /**

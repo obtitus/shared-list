@@ -140,11 +140,9 @@ test.describe('Basic PWA Functionality', () => {
     // Check that the edit button exists and is visible
     const editBtn = page.locator('.edit-btn');
     await expect(editBtn).toBeVisible();
-    console.log('Edit button found and visible');
 
     // Click the edit button
     await editBtn.click();
-    console.log('Edit button clicked');
 
     // Check that an input field appears
     const inputField = page.locator('.item-name-input');
@@ -349,11 +347,6 @@ test.describe('Basic PWA Functionality', () => {
     // Get client IDs from both pages
     const clientId1 = await page1.evaluate(() => (window as any).clientId);
     const clientId2 = await page2.evaluate(() => (window as any).clientId);
-
-    // This test demonstrates the previous bug: same browser context shares localStorage
-    // Both pages will have the same client ID, which breaks SSE filtering
-    console.log('Page 1 client ID:', clientId1);
-    console.log('Page 2 client ID:', clientId2);
 
     // This assertion will FAIL, demonstrating the old bug
     expect(clientId1).toBeDefined();

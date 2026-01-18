@@ -230,9 +230,13 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_offline_functionality(self):
         """Test offline functionality and connection status"""
-        # Check initial online status (dot should be green/connected)
+        # Check initial online status (dot should be green/connected after SSE connects)
         status_dot = self.page.locator("#connectionStatus .status-dot")
         self.assertTrue(status_dot.is_visible())
+
+        # Wait for SSE connection to establish (delayed by 500ms after page load + connection time)
+        self.page.wait_for_timeout(2000)  # Wait up to 2 seconds for connection
+
         dot_class = status_dot.get_attribute("class") or ""
         self.assertIn("connected", dot_class)
 
@@ -554,6 +558,10 @@ class TestShoppingListPWA(unittest.TestCase):
             # Wait for both apps to initialize
             page1.wait_for_selector("#shoppingList", state="attached", timeout=10000)
             page2.wait_for_selector("#shoppingList", state="attached", timeout=10000)
+
+            # Wait for SSE connections to establish (delayed by 500ms after page load)
+            page1.wait_for_timeout(3000)  # Extra time for SSE setup
+            page2.wait_for_timeout(3000)  # Extra time for SSE setup
 
             # Get initial item counts
             initial_count1 = len(page1.locator(".list-item").all())
