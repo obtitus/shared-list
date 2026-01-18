@@ -723,6 +723,10 @@ function renderShoppingList() {
 
             <div class="item-content">
                 <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
+                <button class="edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
+                        aria-label="Edit ${escapeHtml(item.name || 'item')}">
+                    ✏️
+                </button>
             </div>
 
             <div class="item-actions">
@@ -842,6 +846,121 @@ function handleKeyboardShortcuts(e) {
         renderShoppingList();
         document.activeElement.blur();
     }
+}
+
+/**
+ * Start editing an item name
+ */
+function startItemNameEdit(itemId) {
+    console.log('startItemNameEdit called with itemId:', itemId);
+    if (!isOnline) {
+        showToast('Cannot edit items while offline', 'warning');
+        return;
+    }
+
+    const itemIndex = shoppingList.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = shoppingList[itemIndex];
+    const itemElement = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (!itemElement) return;
+
+    const itemNameSpan = itemElement.querySelector('.item-name');
+    if (!itemNameSpan) return;
+
+    const currentName = item.name || '';
+
+    // Create input field (replace span entirely for proper flex layout)
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'item-name-input';
+    input.style.cssText = `
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-medium);
+        color: var(--text-primary);
+        background: transparent;
+        border: 2px solid var(--accent-blue);
+        border-radius: 4px;
+        padding: 2px 6px;
+        outline: none;
+        flex: 1;
+        min-width: 100px;
+    `;
+
+    // Replace span with input entirely (maintains flex layout)
+    itemNameSpan.parentNode.replaceChild(input, itemNameSpan);
+
+    // Focus and select text (with iOS compatibility)
+    setTimeout(() => {
+        input.focus();
+        input.select();
+        // For iOS, also set selection range
+        if (input.setSelectionRange) {
+            input.setSelectionRange(0, input.value.length);
+        }
+    }, 10);
+
+    // Handle save/cancel
+    const saveEdit = async () => {
+        const newName = input.value.trim();
+        if (newName !== currentName) {
+            // Optimistic update
+            shoppingList[itemIndex].name = newName;
+            renderShoppingList();
+
+            try {
+                await apiRequest(API_ITEM_URL(itemId), {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name: newName,
+                        quantity: item.quantity,
+                        completed: item.completed,
+                        order_index: item.order_index
+                    })
+                });
+                showToast('Item name updated successfully', 'success');
+            } catch (error) {
+                // Revert on error
+                shoppingList[itemIndex].name = currentName;
+                renderShoppingList();
+                showToast('Failed to update item name', 'error');
+                console.error('Update item name error:', error);
+            }
+        } else {
+            renderShoppingList(); // Re-render to restore original display
+        }
+    };
+
+    const cancelEdit = () => {
+        renderShoppingList(); // Re-render to restore original display
+    };
+
+    // Handle keyboard events
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
+
+    // Handle blur (save on blur, with iOS compatibility)
+    input.addEventListener('blur', (e) => {
+        // Small delay to allow click events on other elements to fire first
+        setTimeout(() => {
+            if (document.activeElement !== input) {
+                saveEdit();
+            }
+        }, 150);
+    });
+
+    // Prevent item selection when clicking on input
+    input.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
 }
 
 /**
@@ -1391,6 +1510,7 @@ window.handleDragEnd = handleDragEnd;
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.handleTouchEnd = handleTouchEnd;
+window.startItemNameEdit = startItemNameEdit;
 
 // Expose for testing
 window.app = {

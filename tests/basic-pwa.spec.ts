@@ -126,6 +126,38 @@ test.describe('Basic PWA Functionality', () => {
     await expect(page.locator('.list-item')).toHaveCount(0);
   });
 
+  test('should edit item names', async ({ page }) => {
+    // Add an item first
+    await page.fill('#itemName', 'Original Name');
+
+    await page.click('.add-btn');
+    await page.waitForSelector('.list-item');
+
+    // Check initial name
+    const itemName = page.locator('.list-item .item-name');
+    await expect(itemName).toHaveText('Original Name');
+
+    // Check that the edit button exists and is visible
+    const editBtn = page.locator('.edit-btn');
+    await expect(editBtn).toBeVisible();
+    console.log('Edit button found and visible');
+
+    // Click the edit button
+    await editBtn.click();
+    console.log('Edit button clicked');
+
+    // Check that an input field appears
+    const inputField = page.locator('.item-name-input');
+    await expect(inputField).toBeVisible();
+
+    // Change the name
+    await inputField.fill('Edited Name');
+    await inputField.press('Enter');
+
+    // Check that the name is updated
+    await expect(itemName).toHaveText('Edited Name');
+  });
+
   test('should display empty state when no items', async ({ page }) => {
     // Since beforeEach clears items, it should be empty
     await expect(page.locator('#emptyState')).toBeVisible();
