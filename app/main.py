@@ -538,4 +538,4 @@ if __name__ == "__main__":
     port = get_port()
 
     print(f"Starting server on {host}:{port}")
-    uvicorn.run("app.main:app", host=host, port=port, reload=False)
+    uvicorn.run("app.main:app", host=host, port=port, reload=False, workers=1)
