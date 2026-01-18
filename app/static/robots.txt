@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+
+# This shopping list app is for personal use only
+# and should not be indexed by search engines
