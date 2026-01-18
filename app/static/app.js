@@ -728,7 +728,7 @@ function renderShoppingList() {
             <div class="item-actions">
                 <button class="delete-btn" onclick="handleDeleteItem(${item.id})"
                         aria-label="Delete ${escapeHtml(item.name)}">
-                    🗑️ Delete
+                    🗑️
                 </button>
             </div>
         `;

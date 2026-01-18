@@ -2,9 +2,10 @@
 
 ## To-Do
 - [x] Remove item-quantity from the frontend, set it to 1 when adding items to the database.
-- [ ] Remove the "Delete" text on the delete-btn, leaving only the Wastebasket emoji. Simplify "Clear All" to "Clear".
+- [x] Remove the "Delete" text on the delete-btn, leaving only the Wastebasket emoji. Simplify "Clear All" to "Clear".
 - [ ] Make item-name editable, maybe with a new edit button (use emoji only).
 - [ ] Improve caching behavior when changes are made by e.g. modify template to `<script src="{{ url_for('static', path='/app.js') }}?v={{ version }}"></script>`.
+- [ ] Add `{passive: true}` to our touch/scroll event listeners to improve scrolling performance.
 - [ ] Add a robots.txt and any other simple tricks to avoid crawlers finding and indexing this page, altough security is not a major concern, anyone with a link can edit this list and I would like to avoid bots doing that.
 
 ## Done
