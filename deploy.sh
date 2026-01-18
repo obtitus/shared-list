@@ -48,6 +48,8 @@ Environment=PORT=19099
 Environment=HOST=0.0.0.0
 Restart=always
 RestartSec=5
+KillMode=mixed
+TimeoutStopSec=10
 
 [Install]
 WantedBy=default.target
