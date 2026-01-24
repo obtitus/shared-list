@@ -533,10 +533,8 @@ body {
     gap: var(--spacing-xs);
 }
 
-.delete-btn {
-    background: transparent;
-    border: 1px solid #ff4444;
-    color: #ff4444;
+/* Shared base class for item buttons */
+.item-btn {
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -549,20 +547,10 @@ body {
     gap: var(--spacing-xs);
 }
 
-.delete-btn:hover {
-    background: rgba(255, 68, 68, 0.1);
-    transform: scale(1.02);
-}
-
 .delete-btn {
     background: transparent;
     border: 1px solid #ff4444;
     color: #ff4444;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    transition: all 0.2s ease;
 }
 
 .delete-btn:hover {
@@ -570,24 +558,12 @@ body {
     transform: scale(1.05);
 }
 
+
 /* Edit Button */
 .edit-btn {
     background: transparent;
     border: 1px solid var(--accent-cyan);
     color: var(--accent-cyan);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    transition: all 0.2s ease;
-    min-width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    position: relative;
-    z-index: 1;
 }
 
 .edit-btn:hover {

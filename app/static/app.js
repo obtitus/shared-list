@@ -739,14 +739,14 @@ function renderShoppingList() {
 
             <div class="item-content">
                 <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
-                <button class="edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
+                <button class="item-btn edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
                         aria-label="Edit ${escapeHtml(item.name || 'item')}">
                     ✏️
                 </button>
             </div>
 
             <div class="item-actions">
-                <button class="delete-btn" onclick="handleDeleteItem(${item.id})"
+                <button class="item-btn delete-btn" onclick="handleDeleteItem(${item.id})"
                         aria-label="Delete ${escapeHtml(item.name)}">
                     🗑️
                 </button>
