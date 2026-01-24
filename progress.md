@@ -1,15 +1,8 @@
 # Project Progress
 
 ## To-Do
-- [x] Remove item-quantity from the frontend, set it to 1 when adding items to the database.
-- [x] Remove the "Delete" text on the delete-btn, leaving only the Wastebasket emoji. Simplify "Clear All" to "Clear".
-- [x] Make item-name editable, maybe with a new edit button (use emoji only).
-- [x] Improve caching behavior when changes are made by e.g. modify template to `<script src="{{ url_for('static', path='/app.js') }}?v={{ version }}"></script>`.
-- [x] Add `{passive: true}` to our touch/scroll event listeners to improve scrolling performance.
-- [x] Add a robots.txt and any other simple tricks to avoid crawlers finding and indexing this page, altough security is not a major concern, anyone with a link can edit this list and I would like to avoid bots doing that.
-- [x] Reduce the SSE connection retries (especially when the server is actually oflline, there is no need to constantly refresh) and delay the initial SSE connection so the page fully loads before a connection attempt is made
-- [x] Have the database name depend on the port number, migration is not needed.
-- [x] Test are slow now as they need to run serially especially the `npx playwright test tests/basic-pwa.spec.ts`, ensure tests can write into unique databases so each project can run with its own instance.
+- [x] Remove the top "Shared list" banner
+- [x] Move the "Add" button to the same line as the Add item input field, make it dynamic taking up min-width 60 (matching item buttons) and maximum 1/4 of the total width
 
 ## Done
 - [x] Project initialization and `.clinerules` setup
@@ -32,3 +25,12 @@
 - [x] Add clipboard-based import/export feature with iOS-compatible Web Share API, supporting plain text format (one item per row) with flexible parsing for quantities and bullet points.
 - [x] Allow empty items, they work nicely as a visual spacer
 - [x] On a small IOS display the item description get shortened with ..., remove this and use multiple lines instead. At least for small displays, get rid of the wasted padding on the edges.
+- [x] Remove item-quantity from the frontend, set it to 1 when adding items to the database.
+- [x] Remove the "Delete" text on the delete-btn, leaving only the Wastebasket emoji. Simplify "Clear All" to "Clear".
+- [x] Make item-name editable, maybe with a new edit button (use emoji only).
+- [x] Improve caching behavior when changes are made by e.g. modify template to `<script src="{{ url_for('static', path='/app.js') }}?v={{ version }}"></script>`.
+- [x] Add `{passive: true}` to our touch/scroll event listeners to improve scrolling performance.
+- [x] Add a robots.txt and any other simple tricks to avoid crawlers finding and indexing this page, altough security is not a major concern, anyone with a link can edit this list and I would like to avoid bots doing that.
+- [x] Reduce the SSE connection retries (especially when the server is actually oflline, there is no need to constantly refresh) and delay the initial SSE connection so the page fully loads before a connection attempt is made
+- [x] Have the database name depend on the port number, migration is not needed.
+- [x] Test are slow now as they need to run serially especially the `npx playwright test tests/basic-pwa.spec.ts`, ensure tests can write into unique databases so each project can run with its own instance.

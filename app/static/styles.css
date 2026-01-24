@@ -109,35 +109,9 @@ body {
     background: linear-gradient(180deg, var(--bg-color) 0%, var(--bg-secondary) 100%);
 }
 
-/* Header Styles */
+/* Header Styles - Now empty, kept for potential future use */
 .app-header {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-color);
-    padding: var(--spacing-md);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: var(--shadow-soft);
-}
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.app-title {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: -0.5px;
-    text-transform: uppercase;
-    background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    /* Empty header - connection status moved to list header */
 }
 
 .connection-status {
@@ -194,8 +168,9 @@ body {
 
 .add-item-form {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--spacing-md);
+    align-items: flex-start;
 }
 
 .form-group {
@@ -216,6 +191,8 @@ body {
     outline: none;
     transition: all 0.2s ease;
     box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+    height: 48px; /* Match button height */
+    box-sizing: border-box;
 }
 
 .item-input::placeholder, .quantity-input::placeholder {
@@ -242,6 +219,11 @@ body {
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
     text-transform: uppercase;
     letter-spacing: 1px;
+    min-width: 120px;
+    max-width: 25%;
+    flex-shrink: 0;
+    height: 48px; /* Match input height */
+    box-sizing: border-box;
 }
 
 .add-btn:hover {
@@ -271,6 +253,7 @@ body {
     margin-bottom: var(--spacing-lg);
     padding-bottom: var(--spacing-md);
     border-bottom: 1px solid var(--border-color);
+    gap: var(--spacing-md);
 }
 
 .list-title {
@@ -723,7 +706,11 @@ body {
     }
 
     .item-input, .quantity-input {
-        min-width: 100%;
+        min-width: 150px;
+    }
+
+    .add-btn {
+        padding: var(--spacing-md) var(--spacing-lg);
     }
 
     .list-header {
