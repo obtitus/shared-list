@@ -206,8 +206,16 @@ class ServerManager:
     def _cleanup_docker_containers(self):
         """Clean up any existing Docker containers"""
         try:
+            # Stop and remove containers with our project name
             subprocess.run(
-                ["docker", "compose", "down"],
+                ["docker", "compose", "down", "--volumes", "--remove-orphans"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            # Clean up networks that might conflict
+            subprocess.run(
+                ["docker", "network", "prune", "-f"],
                 capture_output=True,
                 text=True,
                 timeout=30,
