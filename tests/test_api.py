@@ -3,20 +3,21 @@
 Unit tests for the Shared Shopping List API using unittest
 Tests all CRUD operations and verifies SQLite integration
 """
-
+import os
+import sys
 import unittest
 import requests
-import sys
 import logging
 
 # Import the server manager
-from server_manager import TestServerManager, check_prerequisites
+from server_manager import ServerManager, check_prerequisites
 
 # Create logger
-logger = logging.getLogger("test." + __name__)
+logger = logging.getLogger("test." + os.path.basename(__file__))
 
 # Configuration
 TEST_TIMEOUT = 10  # seconds
+PORT = 8010
 
 
 class TestShoppingListAPI(unittest.TestCase):
@@ -27,39 +28,15 @@ class TestShoppingListAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Setup server before running tests"""
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
-
-        logger.info("🧪 Starting Shared Shopping List API Tests")
-        logger.info("=" * 50)
-        logger.info(
-            "Using unittest framework to test FastAPI backend with SQLite integration"
-        )
-        logger.info("")
-
         # Check prerequisites
         if not check_prerequisites("api"):
             sys.exit(1)
 
         # Setup server manager
-        cls.server_manager = TestServerManager.for_api_tests()
+        cls.server_manager = ServerManager(port=PORT, server_type="api")
+        cls.server_manager.__enter__()
         cls.BASE_URL = cls.server_manager.base_url
-
-        # Start server if not already running
-        if not cls.server_manager.check_server_running():
-            logger.info("🚀 Starting FastAPI server...")
-            success = cls.server_manager.start_api_server(timeout=30)
-            if not success:
-                raise RuntimeError("Failed to start API server")
-
-            # Wait for server to be fully ready
-            if not cls.server_manager.wait_for_server_boot(timeout=30):
-                raise RuntimeError("Server not ready after boot")
-
-        logger.info("✅ Server is running and ready for tests")
+        logger.info(f"🌐 Server is running {cls.BASE_URL}")
 
         # Clear all items to start with clean state
         try:
@@ -98,7 +75,7 @@ class TestShoppingListAPI(unittest.TestCase):
     def tearDownClass(cls):
         """Cleanup after all tests"""
         if hasattr(cls, "server_manager"):
-            cls.server_manager.stop_server()
+            cls.server_manager.__exit__()
 
     def test_root_endpoint(self):
         """Test the root endpoint"""
@@ -440,4 +417,9 @@ class TestShoppingListAPI(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s[%(levelname)s] - %(name)s\t%(message)s",
+    )
     unittest.main(verbosity=2)

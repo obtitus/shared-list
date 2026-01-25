@@ -189,6 +189,23 @@ class BrowserErrorCapture:
         self.network_failures.clear()
         self.dialogs.clear()
 
+    def print_console_text(self, start_index: int = 0) -> int:
+        """Print all console messages"""
+        ix = 0
+        for ix, msg in enumerate(self.console_messages[start_index:]):
+            level_icon = "ℹ️"
+            if msg["level"] == "warn":
+                level_icon = "⚠️"
+            elif msg["level"] == "error":
+                level_icon = "❌"
+            print(f"{level_icon} [{msg['level'].upper()}] {msg['text']}")
+
+        if ix == 0:
+            print("No console messages captured.")
+            return 0
+
+        return ix + start_index + 1
+
 
 def capture_browser_errors(page: Page, context: BrowserContext) -> BrowserErrorCapture:
     """Factory function to create and setup browser error capture"""

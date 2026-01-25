@@ -4,16 +4,20 @@ Unit tests for Docker setup verification using unittest
 Tests Docker container build, run, and file tree structure
 """
 
+import os
+import sys
 import unittest
 import requests
-import sys
 import logging
 
 # Import the server manager
-from server_manager import TestServerManager, check_prerequisites
+from server_manager import ServerManager, check_prerequisites
 
 # Create logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("test." + os.path.basename(__file__))
+
+# Configuration
+PORT = 8011
 
 
 class TestDockerSetup(unittest.TestCase):
@@ -21,41 +25,22 @@ class TestDockerSetup(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Setup Docker environment before running tests"""
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
-        logger.info("🐳 Starting Docker setup tests...")
-
+        """Setup server before running tests"""
         # Check prerequisites
         if not check_prerequisites("docker"):
             sys.exit(1)
 
         # Setup server manager
-        cls.server_manager = TestServerManager.for_docker_tests()
+        cls.server_manager = ServerManager(port=PORT, server_type="docker")
+        cls.server_manager.__enter__()
         cls.BASE_URL = cls.server_manager.base_url
-
-        # Start Docker container if not already running
-        if not cls.server_manager.check_server_running():
-            logger.info("🐳 Starting Docker container...")
-            success = cls.server_manager.start_docker_server(timeout=120)
-            if not success:
-                raise RuntimeError("Failed to start Docker container")
-
-            # Wait for server to be fully ready
-            if not cls.server_manager.wait_for_server_boot(timeout=60):
-                raise RuntimeError("Docker container not ready after boot")
-
-        logger.info("✅ Docker container is running and ready for tests")
+        logger.info(f"🌐 Server is running {cls.BASE_URL}")
 
     @classmethod
     def tearDownClass(cls):
-        """Clean up Docker resources after all tests"""
-        logger.info("🧹 Cleaning up Docker resources...")
+        """Cleanup after all tests"""
         if hasattr(cls, "server_manager"):
-            cls.server_manager.stop_server()
+            cls.server_manager.__exit__()
 
     def test_api_health_check(self):
         """Test that the API is responding correctly from the container"""
@@ -81,4 +66,9 @@ class TestDockerSetup(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s[%(levelname)s] - %(name)s\t%(message)s",
+    )
     unittest.main(verbosity=2)

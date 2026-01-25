@@ -7,14 +7,15 @@ run:
 test:
 	$(MAKE) docker-down
 	-pkill -f app/main.py
-	# Run Python test files in parallel with port isolation
+	# Run all 4 Python test files in parallel
 	(uv run python tests/test_api.py 2>&1 | tee test_api.log) & \
 	(uv run python tests/test_docker.py 2>&1 | tee test_docker.log) & \
 	(uv run python tests/test_pwa_functionality.py 2>&1 | tee test_pwa.log) & \
+	(uv run python tests/test_pwa_dual.py 2>&1 | tee test_pwa_dual.log) & \
 	wait
 	# Combine logs and cleanup
-	cat test_api.log test_docker.log test_pwa.log > unittest.log
-	rm test_api.log test_docker.log test_pwa.log
+	cat test_api.log test_docker.log test_pwa.log test_pwa_dual.log > unittest.log
+	rm test_api.log test_docker.log test_pwa.log test_pwa_dual.log
 	$(MAKE) test-playwright
 	@echo "=== Unittest Summary ==="
 	@grep -A 2 "^Ran " unittest.log || echo "Could not find unittest summary"

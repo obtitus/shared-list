@@ -39,4 +39,5 @@ services:
 
 networks:
   shared-list-network:
+    name: ${COMPOSE_PROJECT_NAME:-shared-list}-network
     driver: bridge

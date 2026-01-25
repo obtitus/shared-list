@@ -7,11 +7,10 @@ Provides uniform server management across all test types:
 - PWA tests: uv run app/main.py (if needed)
 """
 
+import os
 import subprocess
 import time
 import requests
-import os
-import sys
 import signal
 from typing import Optional
 import logging
@@ -23,12 +22,18 @@ logger = logging.getLogger("test." + __name__)
 class ServerManager:
     """Manages server lifecycle for different test types"""
 
-    def __init__(self, base_url: str = "http://localhost:8000", port: int = 8000):
-        self.base_url = base_url
+    def __init__(
+        self,
+        base_url: str = "http://localhost:",
+        port: int = 8000,
+        server_type: str = "api",
+    ):
+        self.base_url = base_url + str(port)
         self.port = port
         self.server_process: Optional[subprocess.Popen] = None
         self.server_docker_started = False
         self.docker_env = None  # Store Docker environment variables
+        self.server_type = server_type
 
     def check_server_running(self, timeout: int = 5) -> bool:
         """Check if server is already running on the specified port"""
@@ -41,7 +46,6 @@ class ServerManager:
         except requests.exceptions.RequestException:
             pass
 
-        logger.info("⚠️  Server not detected on port")
         return False
 
     def start_api_server(self, timeout: int = 30) -> bool:
@@ -59,21 +63,12 @@ class ServerManager:
                 ["uv", "run", "python", "app/main.py"], env=env
             )
 
-            # Wait for server to start
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                if self.check_server_running(timeout=2):
-                    logger.info("✅ API server started successfully")
-                    return True
-                time.sleep(0.25)
-
-            self.stop_server()
-            return False
-
         except Exception as e:
             logger.error(f"❌ Failed to start API server: {e}")
             self.stop_server()
             return False
+
+        return True
 
     def start_docker_server(self, timeout: int = 120) -> bool:
         """Start the Docker server using docker compose up -d"""
@@ -92,6 +87,9 @@ class ServerManager:
             env["HOST_PORT"] = str(self.port)  # For docker-compose port mapping
             env["COMPOSE_PROJECT_NAME"] = f"test-{self.port}"  # Unique project name
 
+            # Store the Docker environment for cleanup
+            self.docker_env = env
+
             result = subprocess.run(
                 ["docker", "compose", "up", "-d"],
                 capture_output=True,
@@ -104,20 +102,6 @@ class ServerManager:
                 logger.error(f"❌ Docker compose up failed: {result.stderr}")
                 return False
 
-            self.server_docker_started = True
-
-            # Wait for container and API to be ready
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                if self.check_server_running(timeout=2):
-                    logger.info("✅ Docker server started successfully")
-                    return True
-                time.sleep(0.25)
-
-            logger.error("❌ Docker server not ready after timeout")
-            self.stop_server()
-            return False
-
         except subprocess.TimeoutExpired:
             logger.error("❌ Docker compose up timed out")
             self.stop_server()
@@ -127,12 +111,10 @@ class ServerManager:
             self.stop_server()
             return False
 
+        return True
+
     def wait_for_server_boot(self, timeout: int = 30) -> bool:
         """Wait for server to fully boot and be ready to handle requests"""
-        if not self.check_server_running():
-            logger.warning("⚠️  Server is not running")
-            return False
-
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
@@ -175,16 +157,11 @@ class ServerManager:
                         except (OSError, subprocess.TimeoutExpired) as e:
                             logger.error(f"❌ Failed to kill server process: {e}")
 
-            if self.server_docker_started:
-                # For Docker, use docker compose down
-                subprocess.run(
-                    ["docker", "compose", "down"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
+            if self.docker_env is not None:
+                # For Docker, use enhanced cleanup with proper environment
+                self._cleanup_docker_containers(self.docker_env)
                 logger.info("✅ Docker server stopped")
-                self.server_docker_started = False
+                self.docker_env = None
 
             # Verify server is actually down by checking if port is free
             start_time = time.time()
@@ -203,94 +180,47 @@ class ServerManager:
         finally:
             self.server_process = None
 
-    def _cleanup_docker_containers(self):
+    def _cleanup_docker_containers(self, env=None):
         """Clean up any existing Docker containers"""
         try:
-            # Stop and remove containers with our project name
+            # Use provided environment or stored Docker environment
+            cleanup_env = env or self.docker_env or os.environ.copy()
+
+            # Stop and remove containers with our project name (force removal)
             subprocess.run(
-                ["docker", "compose", "down", "--volumes", "--remove-orphans"],
+                [
+                    "docker",
+                    "compose",
+                    "down",
+                    "--volumes",
+                    "--remove-orphans",
+                    "--timeout",
+                    "10",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=60,
+                env=cleanup_env,
             )
-            # Clean up networks that might conflict
-            subprocess.run(
-                ["docker", "network", "prune", "-f"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            subprocess.run(
-                ["docker", "system", "prune", "-f"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"⚠️ Docker cleanup encountered an issue: {e}")
 
     def __enter__(self):
         """Context manager entry"""
-        return self
+        if self.check_server_running():
+            logger.info("✅ Server already running on enter")
+        else:
+            logger.info("🚀 Starting server on enter...")
+            if self.server_type == "docker":
+                self.start_docker_server()
+            else:
+                self.start_api_server()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.wait_for_server_boot()
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
         """Context manager exit"""
-        print("__exit__")
         self.stop_server()
-
-
-class TestServerManager:
-    """Factory class for creating appropriate server managers for different test types"""
-
-    @staticmethod
-    def for_api_tests(port: int = 8010) -> ServerManager:
-        """Create server manager for API tests"""
-        return ServerManager(f"http://localhost:{port}", port)
-
-    @staticmethod
-    def for_docker_tests(port: int = 8011) -> ServerManager:
-        """Create server manager for Docker tests"""
-        return ServerManager(f"http://localhost:{port}", port)
-
-    @staticmethod
-    def for_pwa_tests(port: int = 8012) -> ServerManager:
-        """Create server manager for PWA tests"""
-        return ServerManager(f"http://localhost:{port}", port)
-
-
-def ensure_server_available(
-    server_type: str = "api", timeout: int = 30
-) -> ServerManager:
-    """
-    Ensure server is available for tests
-
-    Args:
-        server_type: Type of server ("api" or "docker")
-        timeout: Maximum time to wait for server to start
-
-    Returns:
-        ServerManager instance
-    """
-    manager = (
-        TestServerManager.for_api_tests()
-        if server_type == "api"
-        else TestServerManager.for_docker_tests()
-    )
-
-    if server_type == "api":
-        success = manager.start_api_server(timeout)
-    elif server_type == "docker":
-        success = manager.start_docker_server(timeout)
-    else:
-        raise ValueError(f"Unknown server type: {server_type}")
-
-    if not success:
-        raise RuntimeError(f"Failed to start {server_type} server")
-
-    if not manager.wait_for_server_boot(timeout):
-        raise RuntimeError("Server not ready after boot timeout")
-
-    return manager
 
 
 def check_prerequisites(test_type: str) -> bool:
@@ -331,25 +261,21 @@ if __name__ == "__main__":
     )
 
     # Example usage
+    if not (check_prerequisites("docker")):
+        raise OSError("docker not available")
 
-    if len(sys.argv) > 1:
-        server_type = sys.argv[1]
-        if server_type not in ["api", "docker"]:
-            print("Usage: python server_manager.py [api|docker]")
-            sys.exit(1)
+    if not (check_prerequisites("api")):
+        raise OSError("api not available")
 
-        if not check_prerequisites(server_type):
-            sys.exit(1)
+    now = time.time()
+    with ServerManager(port=8000, server_type="docker") as server:
+        logger.info("✅ Server is running for testing")
 
-        try:
-            with ensure_server_available(server_type) as manager:
-                print(f"✅ {server_type.upper()} server is running and ready!")
+    logger.info(
+        "Docker starting/stopping took {:.3g} seconds".format(time.time() - now)
+    )
 
-                time.sleep(10)
-                print("\n🛑 Stopping server...")
-        except RuntimeError as e:
-            print(f"❌ {e}")
-            sys.exit(1)
-    else:
-        print("Usage: python server_manager.py [api|docker]")
-        sys.exit(1)
+    now = time.time()
+    with ServerManager(port=8000, server_type="api") as server:
+        logger.info("✅ Server is running for testing")
+    logger.info("API starting/stopping took {:.3g} seconds".format(time.time() - now))

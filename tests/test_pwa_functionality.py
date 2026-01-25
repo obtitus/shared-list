@@ -3,15 +3,19 @@
 Playwright E2E Tests for Shared Shopping List PWA
 Tests core functionality across multiple devices and browsers using unittest
 """
+import os
 import sys
 import unittest
 import logging
 from playwright.sync_api import sync_playwright
 from browser_error_capture import capture_browser_errors, assert_no_errors
-from server_manager import TestServerManager, check_prerequisites
+from server_manager import ServerManager, check_prerequisites
 
 # Create logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("test." + os.path.basename(__file__))
+
+# Configuration
+PORT = 8013
 
 
 class TestShoppingListPWA(unittest.TestCase):
@@ -19,34 +23,16 @@ class TestShoppingListPWA(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Setup Docker environment before running tests"""
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        )
-        logger.info("🐳 Starting Docker setup tests...")
-
+        """Setup server before running tests"""
         # Check prerequisites
         if not check_prerequisites("docker"):
             sys.exit(1)
 
         # Setup server manager
-        cls.server_manager = TestServerManager.for_pwa_tests()
+        cls.server_manager = ServerManager(port=PORT, server_type="docker")
+        cls.server_manager.__enter__()
         cls.BASE_URL = cls.server_manager.base_url
-
-        # Start Docker container if not already running
-        if not cls.server_manager.check_server_running():
-            logger.info("🐳 Starting Docker container...")
-            success = cls.server_manager.start_docker_server(timeout=120)
-            if not success:
-                raise RuntimeError("Failed to start Docker container")
-
-            # Wait for server to be fully ready
-            if not cls.server_manager.wait_for_server_boot(timeout=60):
-                raise RuntimeError("Docker container not ready after boot")
-
-        logger.info("✅ Docker container is running and ready for tests")
+        logger.info(f"🌐 Server is running {cls.BASE_URL}")
 
         # Initialize Playwright
         cls.playwright = sync_playwright().start()
@@ -55,14 +41,13 @@ class TestShoppingListPWA(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        """Cleanup for the test class"""
+        """Cleanup after all tests"""
         if hasattr(cls, "browser") and cls.browser:
             cls.browser.close()
         if hasattr(cls, "playwright") and cls.playwright:
             cls.playwright.stop()
-        if hasattr(cls, "server_manager") and cls.server_manager:
-            logger.info("🛑 tearDown Stopping server...")
-            cls.server_manager.stop_server()
+        if hasattr(cls, "server_manager"):
+            cls.server_manager.__exit__()
 
     def setUp(self):
         """Setup for each test"""
@@ -541,77 +526,6 @@ class TestShoppingListPWA(unittest.TestCase):
             # Orientation lock might not be supported in all environments
             pass
 
-    def test_real_time_updates(self):
-        """Test real-time updates between multiple browser instances using SSE"""
-        # Create two separate pages to simulate different users/devices
-        page1 = self.context.new_page()
-        page2 = self.context.new_page()
-
-        # Setup error capture for both pages
-        errors1 = capture_browser_errors(page1, self.context)
-        errors2 = capture_browser_errors(page2, self.context)
-
-        try:
-            # Navigate both pages to the app
-            page1.goto(self.BASE_URL)
-            page2.goto(self.BASE_URL)
-
-            # Wait for both apps to initialize
-            page1.wait_for_selector("#shoppingList", state="attached", timeout=10000)
-            page2.wait_for_selector("#shoppingList", state="attached", timeout=10000)
-
-            # Wait for SSE connections to establish (delayed by 500ms after page load)
-            page1.wait_for_timeout(3000)  # Extra time for SSE setup
-            page2.wait_for_timeout(3000)  # Extra time for SSE setup
-
-            # Get initial item counts
-            initial_count1 = len(page1.locator(".list-item").all())
-            initial_count2 = len(page2.locator(".list-item").all())
-
-            # Add an item from page1
-            page1.fill("#itemName", "Real-time Test Item")
-            page1.click(".add-btn")
-
-            # Wait for the item to appear in page1
-            page1.wait_for_selector(
-                '.list-item:has-text("Real-time Test Item")', timeout=5000
-            )
-
-            # Verify the item appears in page2 via SSE (without manual refresh)
-            page2.wait_for_selector(
-                '.list-item:has-text("Real-time Test Item")', timeout=10000
-            )
-
-            # Check item details in page2
-            item_name = page2.locator(
-                '.list-item:has-text("Real-time Test Item") .item-name'
-            ).inner_text()
-
-            self.assertEqual(item_name, "Real-time Test Item")
-
-            # Verify counts updated in both pages
-            final_count1 = len(page1.locator(".list-item").all())
-            final_count2 = len(page2.locator(".list-item").all())
-
-            self.assertEqual(final_count1, initial_count1 + 1)
-            self.assertEqual(final_count2, initial_count2 + 1)
-
-            # Test that page1 doesn't show echo (since it triggered the event)
-            # The item should still be there, but no duplicate toast or issues
-            self.assertEqual(
-                len(page1.locator('.list-item:has-text("Real-time Test Item")').all()),
-                1,
-            )
-
-            # Assert no errors occurred
-            assert_no_errors(errors1, "test_real_time_updates_page1")
-            assert_no_errors(errors2, "test_real_time_updates_page2")
-
-        finally:
-            # Cleanup pages
-            page1.close()
-            page2.close()
-
     def test_import_export_parsing(self):
         """Test the import text parsing logic"""
         # Test various input formats
@@ -771,7 +685,252 @@ class TestShoppingListPWA(unittest.TestCase):
             ignore_patterns=["Clipboard API failed"],
         )
 
+    def test_connection_health_monitoring(self):
+        """Test connection health monitoring and automatic reconnection"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Check that connection is healthy initially
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+        self.assertIn("connected", dot_class)
+
+        # Test that we can force reconnection
+        self.page.evaluate("() => window.forceSSEReconnection()")
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection is re-established
+        dot_class_after_reconnect = status_dot.get_attribute("class") or ""
+        self.assertIn("connected", dot_class_after_reconnect)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_connection_health_monitoring")
+
+    def test_ios_visibility_change_reconnection(self):
+        """Test iOS lock/unlock screen scenario with visibility change events"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate page becoming hidden (lock screen)
+        self.page.evaluate(
+            "() => document.dispatchEvent(new Event('visibilitychange'))"
+        )
+        self.page.evaluate(
+            "() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })"
+        )
+
+        # Wait a moment
+        self.page.wait_for_timeout(500)
+
+        # Simulate page becoming visible again (unlock screen)
+        self.page.evaluate(
+            "() => Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })"
+        )
+        self.page.evaluate(
+            "() => document.dispatchEvent(new Event('visibilitychange'))"
+        )
+
+        # Wait for reconnection to happen
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection status is updated
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+
+        # Connection should be healthy after visibility change
+        self.assertIn("connected", dot_class)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_ios_visibility_change_reconnection")
+
+    def test_ios_focus_blur_events(self):
+        """Test iOS tab switching scenarios with focus/blur events"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate page losing focus (switching to another app/tab)
+        self.page.evaluate("() => window.dispatchEvent(new Event('blur'))")
+
+        # Wait a moment
+        self.page.wait_for_timeout(500)
+
+        # Simulate page gaining focus again
+        self.page.evaluate("() => window.dispatchEvent(new Event('focus'))")
+
+        # Wait for connection check to happen
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection status is updated
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+
+        # Connection should be healthy after focus event
+        self.assertIn("connected", dot_class)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_ios_focus_blur_events")
+
+    def test_ios_resume_event_handling(self):
+        """Test iOS app resume event handling"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate iOS app resume event (specific to mobile Safari)
+        self.page.evaluate("() => document.dispatchEvent(new Event('resume'))")
+
+        # Wait for forced reconnection to happen
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection status is updated
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+
+        # Connection should be healthy after resume event
+        self.assertIn("connected", dot_class)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_ios_resume_event_handling")
+
+    def test_ios_pageshow_event_handling(self):
+        """Test iOS pageshow event handling for better mobile support"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate pageshow event (when page is shown from cache)
+        self.page.evaluate(
+            "() => window.dispatchEvent(new Event('pageshow', { persisted: true }))"
+        )
+
+        # Wait for connection check to happen
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection status is updated
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+
+        # Connection should be healthy after pageshow event
+        self.assertIn("connected", dot_class)
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_ios_pageshow_event_handling")
+
+    def test_ios_network_state_change_reconnection(self):
+        """Test iOS network state changes and reconnection behavior"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate going offline
+        self.page.context.set_offline(True)
+        self.page.wait_for_timeout(1000)
+
+        # Check offline status
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+        self.assertIn("offline", dot_class)
+
+        # Simulate coming back online
+        self.page.context.set_offline(False)
+        self.page.wait_for_timeout(2000)
+
+        # Check that connection is re-established
+        dot_class_after_online = status_dot.get_attribute("class") or ""
+        self.assertIn("connected", dot_class_after_online)
+
+        # Assert no errors occurred
+        assert_no_errors(
+            self.browser_errors, "test_ios_network_state_change_reconnection"
+        )
+
+    def test_ios_forced_reconnection_functionality(self):
+        """Test iOS forced reconnection functionality"""
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Test forced reconnection
+        self.page.evaluate("() => window.forceSSEReconnection()")
+        self.page.wait_for_timeout(2000)
+
+        # Check that reconnection happened
+        connection_healthy = self.page.evaluate("() => window.isConnectionHealthy")
+        self.assertTrue(
+            connection_healthy, "Connection should be healthy after forced reconnection"
+        )
+
+        # Check that retry count was reset
+        retry_count = self.page.evaluate("() => window.sseRetryCount")
+        self.assertEqual(
+            retry_count, 0, "Retry count should be reset after forced reconnection"
+        )
+
+        # Assert no errors occurred
+        assert_no_errors(
+            self.browser_errors, "test_ios_forced_reconnection_functionality"
+        )
+
+    def test_ios_lock_unlock_scenario(self):
+        """Test complete iOS lock/unlock screen scenario"""
+        # Add some items to test data persistence
+        self.page.fill("#itemName", "Test Item Before Lock")
+        self.page.click(".add-btn")
+        self.page.wait_for_timeout(1000)
+
+        # Wait for SSE connection to establish
+        self.page.wait_for_timeout(3000)
+
+        # Simulate iOS lock screen (page becomes hidden)
+        self.page.evaluate(
+            "() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })"
+        )
+        self.page.evaluate(
+            "() => document.dispatchEvent(new Event('visibilitychange'))"
+        )
+
+        # Wait a moment to simulate being locked
+        self.page.wait_for_timeout(1000)
+
+        # Simulate iOS unlock screen (page becomes visible)
+        self.page.evaluate(
+            "() => Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })"
+        )
+        self.page.evaluate(
+            "() => document.dispatchEvent(new Event('visibilitychange'))"
+        )
+
+        # Wait for reconnection and data refresh
+        self.page.wait_for_timeout(3000)
+
+        # Check that connection is healthy
+        status_dot = self.page.locator("#connectionStatus .status-dot")
+        dot_class = status_dot.get_attribute("class") or ""
+        self.assertIn("connected", dot_class)
+
+        # Check that data is still there (no data loss)
+        item_exists = self.page.locator(
+            '.list-item:has-text("Test Item Before Lock")'
+        ).is_visible()
+        self.assertTrue(item_exists, "Data should persist through lock/unlock cycle")
+
+        # Add another item to verify functionality works after reconnection
+        self.page.fill("#itemName", "Test Item After Unlock")
+        self.page.click(".add-btn")
+        self.page.wait_for_timeout(1000)
+
+        # Verify new item was added successfully
+        new_item_exists = self.page.locator(
+            '.list-item:has-text("Test Item After Unlock")'
+        ).is_visible()
+        self.assertTrue(
+            new_item_exists, "New items should be addable after reconnection"
+        )
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_ios_lock_unlock_scenario")
+
 
 if __name__ == "__main__":
-    # Run the tests
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s[%(levelname)s] - %(name)s\t%(message)s",
+    )
     unittest.main(verbosity=2)

@@ -163,6 +163,48 @@ function initializeEventListeners() {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
+
+    // Handle page visibility changes (iOS unlock, tab switching)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isOnline && !isLoading) {
+            console.log('Page became visible - coordinating connection and refresh');
+            // Coordinate connection check and refresh with debouncing
+            handleVisibilityChange();
+        }
+    });
+
+    // Handle page focus/blur events for tab switching scenarios
+    window.addEventListener('focus', () => {
+        if (isOnline && !isLoading) {
+            console.log('Page gained focus - coordinating connection and refresh');
+            // Coordinate connection check and refresh with debouncing
+            handleFocusChange();
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        console.log('Page lost focus');
+        // Don't disconnect SSE on blur, let it handle natural disconnection
+    });
+
+    // Handle mobile-specific resume events (iOS)
+    document.addEventListener('resume', () => {
+        if (isOnline && !isLoading) {
+            console.log('Mobile app resumed - forcing connection check and refresh');
+            // Mobile devices often need explicit reconnection after resume
+            handleMobileResume();
+        }
+    }, { passive: true });
+
+    // Handle pageshow event for better mobile support
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted || (event.target && event.target.visibilityState === 'visible')) {
+            console.log('Page shown (possibly from cache) - coordinating connection and refresh');
+            if (isOnline && !isLoading) {
+                handlePageShow(event);
+            }
+        }
+    }, { passive: true });
 }
 
 
@@ -332,6 +374,12 @@ async function loadShoppingList() {
 async function handleAddItem(e) {
     e.preventDefault();
 
+    console.log('handleAddItem called');
+    console.log('Form elements:', elements);
+    console.log('Item name input value:', elements.itemNameInput.value);
+    console.log('Item name trimmed:', elements.itemNameInput.value.trim());
+    console.log('Selected item ID:', selectedItemId);
+
     if (!isOnline) {
         showToast('Cannot add items while offline', 'error');
         return;
@@ -340,6 +388,8 @@ async function handleAddItem(e) {
     let name = elements.itemNameInput.value.trim();
 
     // Allow empty names for visual spacers (name is already trimmed)
+
+    console.log('Adding item with name:', name);
 
     setLoading(true);
 
@@ -358,10 +408,14 @@ async function handleAddItem(e) {
             }
         }
 
+        console.log('Sending API request with payload:', payload);
+
         const newItem = await apiRequest(API_BASE_URL, {
             method: 'POST',
             body: JSON.stringify(payload)
         });
+
+        console.log('API response received:', newItem);
 
         // Insert at correct position locally
         if (selectedItemId !== null) {
@@ -374,6 +428,8 @@ async function handleAddItem(e) {
         } else {
             shoppingList.push(newItem);
         }
+
+        console.log('Shopping list after adding item:', shoppingList);
 
         // Clear selection
         selectedItemId = null;
@@ -1261,6 +1317,90 @@ async function handleTouchEnd(event) {
 }
 
 /**
+ * Connection Health Monitoring
+ */
+let lastEventTime = Date.now();
+let connectionHealthTimer = null;
+let isConnectionHealthy = true;
+
+/**
+ * Check and reconnect SSE if needed
+ */
+function checkAndReconnectSSE() {
+    // If we have an active connection, check its health
+    if (eventSource) {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        const maxEventAge = 60000; // 1 minute
+
+        // If no events received for a while, force reconnection
+        if (timeSinceLastEvent > maxEventAge) {
+            console.log('No SSE events received for', timeSinceLastEvent, 'ms, forcing reconnection');
+            forceSSEReconnection();
+        }
+    } else {
+        // No active connection, try to connect
+        connectToSSE();
+    }
+}
+
+/**
+ * Force SSE reconnection (used for mobile resume scenarios)
+ */
+function forceSSEReconnection() {
+    console.log('Forcing SSE reconnection');
+
+    // Close existing connection if any
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+
+    // Clear any pending retry timeouts
+    if (sseRetryTimeout) {
+        clearTimeout(sseRetryTimeout);
+        sseRetryTimeout = null;
+    }
+
+    // Reset retry count for forced reconnection
+    sseRetryCount = 0;
+
+    // Try immediate reconnection
+    setTimeout(() => {
+        if (isOnline) {
+            connectToSSE();
+        }
+    }, 500);
+}
+
+/**
+ * Monitor connection health
+ */
+function startConnectionHealthMonitoring() {
+    // Clear existing timer
+    if (connectionHealthTimer) {
+        clearInterval(connectionHealthTimer);
+    }
+
+    // Check connection health every 30 seconds
+    connectionHealthTimer = setInterval(() => {
+        if (eventSource && isOnline) {
+            const timeSinceLastEvent = Date.now() - lastEventTime;
+            const maxEventAge = 60000; // 1 minute
+
+            if (timeSinceLastEvent > maxEventAge) {
+                if (isConnectionHealthy) {
+                    console.log('SSE connection appears unhealthy, attempting reconnection');
+                    isConnectionHealthy = false;
+                    forceSSEReconnection();
+                }
+            } else {
+                isConnectionHealthy = true;
+            }
+        }
+    }, 30000); // Check every 30 seconds
+}
+
+/**
  * Connect to Server-Sent Events for real-time updates
  */
 function connectToSSE() {
@@ -1274,12 +1414,16 @@ function connectToSSE() {
         eventSource.onopen = () => {
             console.log('SSE connection established');
             isRealTimeConnected = true;
+            isConnectionHealthy = true;
             updateConnectionStatus();
+            startConnectionHealthMonitoring();
         };
 
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                lastEventTime = Date.now();
+                isConnectionHealthy = true;
                 handleSSEEvent(data);
             } catch (error) {
                 console.error('SSE message parse error:', error);
@@ -1289,6 +1433,7 @@ function connectToSSE() {
         eventSource.onerror = (error) => {
             console.error('SSE connection error:', error);
             isRealTimeConnected = false;
+            isConnectionHealthy = false;
             updateConnectionStatus();
 
             // Close and cleanup
@@ -1331,6 +1476,12 @@ function connectToSSE() {
  * Handle Server-Sent Events
  */
 function handleSSEEvent(data) {
+    // Test flag to simulate offline mode - ignore events when set
+    if (window.TEST_OFFLINE_MODE) {
+        console.log("TEST: Ignoring SSE event due to offline mode:", data);
+        return;
+    }
+
     // Skip ping events
     if (data.type === 'ping') {
         return;
@@ -1384,6 +1535,7 @@ function handleItemCreated(data) {
         renderShoppingList();
         updateEmptyState();
         showToast('Item added from another device', 'info');
+        console.log('New item added via SSE:', newItem);
     }
 }
 
@@ -1519,6 +1671,160 @@ function setupHourlyRefresh() {
 }
 
 /**
+ * iOS Reconnection and Refresh Coordination
+ * Handles debounced refresh after ensuring connection is healthy
+ */
+
+let refreshDebounceTimer = null;
+let connectionCheckTimer = null;
+
+/**
+ * Handle visibility change with connection coordination
+ */
+function handleVisibilityChange() {
+    // Debounce multiple rapid events (visibilitychange + focus + resume)
+    if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+    }
+
+    refreshDebounceTimer = setTimeout(() => {
+        console.log('Visibility change debounce complete - checking connection and refreshing');
+        coordinateConnectionAndRefresh('visibility');
+    }, 500); // 500ms debounce
+}
+
+/**
+ * Handle focus change with connection coordination
+ */
+function handleFocusChange() {
+    // Debounce multiple rapid events
+    if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+    }
+
+    refreshDebounceTimer = setTimeout(() => {
+        console.log('Focus change debounce complete - checking connection and refreshing');
+        coordinateConnectionAndRefresh('focus');
+    }, 300); // 300ms debounce for focus
+}
+
+/**
+ * Handle mobile resume with connection coordination
+ */
+function handleMobileResume() {
+    // Mobile resume needs immediate attention but still debounce
+    if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+    }
+
+    refreshDebounceTimer = setTimeout(() => {
+        console.log('Mobile resume debounce complete - forcing connection check and refresh');
+        // Mobile devices often need explicit reconnection after resume
+        forceSSEReconnection();
+        // Wait a bit for connection to establish, then refresh
+        setTimeout(() => {
+            coordinateConnectionAndRefresh('mobile_resume');
+        }, 1000);
+    }, 200); // 200ms debounce for mobile resume
+}
+
+/**
+ * Handle pageshow event with connection coordination
+ */
+function handlePageShow(event) {
+    // Debounce pageshow events
+    if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+    }
+
+    refreshDebounceTimer = setTimeout(() => {
+        console.log('Page show debounce complete - checking connection and refreshing');
+        coordinateConnectionAndRefresh('pageshow');
+    }, 400); // 400ms debounce for pageshow
+}
+
+/**
+ * Coordinate connection check and data refresh
+ */
+async function coordinateConnectionAndRefresh(source) {
+    console.log(`Coordinating connection and refresh from ${source}`);
+
+    // First, ensure we have a healthy connection
+    await ensureHealthyConnection();
+
+    // Then refresh data if connection is healthy
+    if (isConnectionHealthy && isOnline && !isLoading) {
+        console.log(`Connection healthy after ${source} - refreshing data`);
+        try {
+            await loadShoppingList();
+            await loadListInfo();
+            showToast(`Data refreshed after ${source}`, 'success');
+        } catch (error) {
+            console.error(`Refresh failed after ${source}:`, error);
+            showToast('Failed to refresh data after reconnection', 'error');
+        }
+    } else {
+        console.log(`Connection not ready after ${source}, will retry in 2 seconds`);
+        // Retry in 2 seconds if connection isn't ready yet
+        if (connectionCheckTimer) {
+            clearTimeout(connectionCheckTimer);
+        }
+
+        connectionCheckTimer = setTimeout(() => {
+            coordinateConnectionAndRefresh(source);
+        }, 2000);
+    }
+}
+
+/**
+ * Ensure we have a healthy SSE connection
+ */
+async function ensureHealthyConnection() {
+    console.log('Ensuring healthy connection...');
+
+    // If we're offline, don't show any toast and let the existing backoff logic handle it
+    if (!isOnline) {
+        console.log('Device is offline, letting existing backoff logic handle reconnection');
+        return;
+    }
+
+    // If we have no connection, try to connect
+    if (!eventSource) {
+        console.log('No SSE connection, attempting to connect');
+        connectToSSE();
+    }
+
+    // Wait for connection to be established and healthy
+    let attempts = 0;
+    const maxAttempts = 30; // Wait up to 30 seconds (30 * 100ms)
+
+    while (attempts < maxAttempts) {
+        if (isConnectionHealthy && isRealTimeConnected) {
+            console.log('Connection is healthy');
+            return;
+        }
+
+        // If connection is unhealthy, force reconnection
+        if (eventSource && !isConnectionHealthy) {
+            console.log('Connection unhealthy, forcing reconnection');
+            forceSSEReconnection();
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+        attempts++;
+    }
+
+    // Only show timeout toast if we were previously connected (unexpected disconnection)
+    // Don't show it if we were never connected or if we're offline
+    if (isRealTimeConnected) {
+        console.log('Timed out waiting for healthy connection after unexpected disconnection');
+        showToast('Connection taking longer than expected', 'warning');
+    } else {
+        console.log('Timed out waiting for initial connection, letting backoff logic handle it');
+    }
+}
+
+/**
  * Cleanup function for page unload
  */
 function cleanup() {
@@ -1530,6 +1836,22 @@ function cleanup() {
     if (hourlyRefreshTimer) {
         clearInterval(hourlyRefreshTimer);
         hourlyRefreshTimer = null;
+    }
+
+    if (connectionHealthTimer) {
+        clearInterval(connectionHealthTimer);
+        connectionHealthTimer = null;
+    }
+
+    // Clear debouncing timers
+    if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+        refreshDebounceTimer = null;
+    }
+
+    if (connectionCheckTimer) {
+        clearTimeout(connectionCheckTimer);
+        connectionCheckTimer = null;
     }
 }
 
@@ -1573,3 +1895,7 @@ window.app = {
     showToast,
     setLoading
 };
+
+// Expose global variables for testing
+window.isConnectionHealthy = isConnectionHealthy;
+window.sseRetryCount = sseRetryCount;
