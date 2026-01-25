@@ -1523,17 +1523,33 @@ function handleSSEEvent(data) {
 }
 
 /**
- * Handle item created event
+ * Handle item created event with count validation
  */
 function handleItemCreated(data) {
     const newItem = data.item;
     const existingIndex = shoppingList.findIndex(item => item.id === newItem.id);
 
     if (existingIndex === -1) {
-        // Add new item to the list
+        // Step 1: Validate old count
+        if (shoppingList.length !== data.old_count) {
+            console.warn('Item creation count mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 2: Apply change
         shoppingList.push(newItem);
         renderShoppingList();
         updateEmptyState();
+
+        // Step 3: Validate new count
+        if (shoppingList.length !== data.new_count) {
+            console.warn('Item creation new count mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 4: Show success message
         showToast('Item added from another device', 'info');
         console.log('New item added via SSE:', newItem);
     }
@@ -1555,46 +1571,85 @@ function handleItemUpdated(data) {
 }
 
 /**
- * Handle item deleted event
+ * Handle item deleted event with count validation
  */
 function handleItemDeleted(data) {
     const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
 
     if (itemIndex !== -1) {
-        // Remove item from the list
+        // Step 1: Validate old count
+        if (shoppingList.length !== data.old_count) {
+            console.warn('Item deletion count mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 2: Apply change
         shoppingList.splice(itemIndex, 1);
         renderShoppingList();
         updateEmptyState();
+
+        // Step 3: Validate new count
+        if (shoppingList.length !== data.new_count) {
+            console.warn('Item deletion new count mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 4: Show success message
         showToast('Item deleted from another device', 'info');
     }
 }
 
 /**
- * Handle item toggled event
+ * Handle item toggled event with state validation
  */
 function handleItemToggled(data) {
     const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
 
     if (itemIndex !== -1) {
-        // Update completion status
-        shoppingList[itemIndex].completed = data.completed;
+        // Step 1: Validate old state
+        if (shoppingList[itemIndex].completed !== data.old_state) {
+            console.warn('Item toggle state mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 2: Apply change
+        shoppingList[itemIndex].completed = data.new_state;
         renderShoppingList();
+
+        // Step 3: Validate new state
+        if (shoppingList[itemIndex].completed !== data.new_state) {
+            console.warn('Item toggle new state mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 4: Show success message
         showToast('Item status changed from another device', 'info');
     }
 }
 
 /**
- * Handle item reordered event
+ * Handle item reordered event with state validation
  */
 function handleItemReordered(data) {
     const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
 
     if (itemIndex !== -1) {
-        // Reorder the item in the local list
+        // Step 1: Validate old state
+        if (shoppingList[itemIndex].order_index !== data.old_state) {
+            console.warn('Item reorder state mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 2: Apply change
         const item = shoppingList.splice(itemIndex, 1)[0];
 
         // Find new position based on order_index
-        let newIndex = shoppingList.findIndex(i => i.order_index >= data.new_order);
+        let newIndex = shoppingList.findIndex(i => i.order_index >= data.new_state);
         if (newIndex === -1) {
             newIndex = shoppingList.length;
         }
@@ -1607,6 +1662,16 @@ function handleItemReordered(data) {
         });
 
         renderShoppingList();
+
+        // Step 3: Validate new state
+        const finalItemIndex = shoppingList.findIndex(item => item.id === data.item_id);
+        if (finalItemIndex !== -1 && shoppingList[finalItemIndex].order_index !== data.new_state) {
+            console.warn('Item reorder new state mismatch, refreshing...');
+            loadShoppingList();
+            return;
+        }
+
+        // Step 4: Show success message
         showToast('Item reordered from another device', 'info');
     }
 }

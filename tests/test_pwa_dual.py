@@ -234,6 +234,137 @@ class TestDualBrowserPWA(unittest.TestCase):
             self.errors_b, "test_user_a_adds_item_user_b_sees_via_sse_page_b"
         )
 
+    def test_event_state_mismatch_handling(self):
+        """Test that state mismatches trigger warnings and force refreshes"""
+        # Clear all items first
+        self.page_a.click("#clearBtn")
+        self.page_a.wait_for_timeout(1000)
+        self.page_b.wait_for_timeout(1000)
+
+        # Add an item to both pages
+        self.page_a.fill("#itemName", "Mismatch Test Item")
+        self.page_a.click(".add-btn")
+        self.page_a.wait_for_timeout(2000)
+
+        # Verify both pages see the item
+        self.page_a.wait_for_selector(
+            '.list-item:has-text("Mismatch Test Item")', timeout=10000
+        )
+        self.page_b.wait_for_selector(
+            '.list-item:has-text("Mismatch Test Item")', timeout=10000
+        )
+
+        # Create a state mismatch by simulating User B going offline
+        # This will cause User B to miss subsequent events
+        self.page_b.evaluate("window.TEST_OFFLINE_MODE = true")
+
+        # User A toggles the item while User B is offline (generates SSE event)
+        item_checkbox_a = self.page_a.locator(
+            '.list-item:has-text("Mismatch Test Item") .item-checkbox'
+        )
+        item_checkbox_a.click()
+        self.page_a.wait_for_timeout(1000)
+
+        # User B should still see the item (outdated state)
+        item_checkbox_b = self.page_b.locator(
+            '.list-item:has-text("Mismatch Test Item") .item-checkbox'
+        )
+        class_a = item_checkbox_a.get_attribute("class") or ""
+        class_b = item_checkbox_b.get_attribute("class") or ""
+        is_checked_a = "checked" in class_a
+        is_checked_b = "checked" in class_b
+        self.assertTrue(is_checked_a, "User A should see item as checked")
+        self.assertFalse(is_checked_b, "User B should see item as unchecked (outdated)")
+
+        # Now bring User B back online
+        self.page_b.evaluate("window.TEST_OFFLINE_MODE = false")
+        self.page_b.wait_for_timeout(2000)
+
+        # Now let user A toggle again while user B is online, should trigger refresh
+        item_checkbox_a.click()
+        self.page_a.wait_for_timeout(1000)
+
+        # User A and B should see the same state
+        class_a_after = item_checkbox_a.get_attribute("class") or ""
+        class_b_after = item_checkbox_b.get_attribute("class") or ""
+        is_checked_a_after = "checked" in class_a_after
+        is_checked_b_after = "checked" in class_b_after
+        self.assertFalse(is_checked_a_after, "User A should see item as unchecked")
+        self.assertFalse(is_checked_b_after, "User B should see item as unchecked")
+
+        # Check that a warning was logged for count mismatch
+        warn_a = self.errors_a.get_all_warnings()
+        warn_b = self.errors_b.get_all_warnings()
+        self.assertEqual(warn_a, [], "No warnings should be present on page A")
+        self.assertEqual(len(warn_b), 1, "page B should have a refresh warning")
+        self.assertIn(
+            "refreshing...", warn_b[0], "page B should have a refresh warning"
+        )
+        # Assert no errors occurred (warnings are expected)
+        assert_no_errors(self.errors_a, "test_event_state_mismatch_handling_page_a")
+        assert_no_errors(self.errors_b, "test_event_state_mismatch_handling_page_b")
+
+    def test_count_mismatch_handling(self):
+        """Test that count mismatches trigger warnings and force refreshes"""
+        # Clear all items first
+        self.page_a.click("#clearBtn")
+        self.page_a.wait_for_timeout(1000)
+        self.page_b.wait_for_timeout(1000)
+
+        # Add two items
+        for i in range(2):
+            self.page_a.fill("#itemName", f"Count Mismatch Item {i+1}")
+            self.page_a.click(".add-btn")
+            self.page_a.wait_for_timeout(1000)
+
+        # Verify both pages see both items
+        self.page_b.wait_for_timeout(2000)
+        user_a_count = len(self.page_a.locator(".list-item").all())
+        user_b_count = len(self.page_b.locator(".list-item").all())
+        self.assertEqual(user_a_count, 2)
+        self.assertEqual(user_b_count, 2)
+
+        # Create a count mismatch by simulating User B going offline
+        self.page_b.evaluate("window.TEST_OFFLINE_MODE = true")
+
+        # User A adds another item while User B is offline
+        self.page_a.fill("#itemName", "Count Mismatch Item 3")
+        self.page_a.click(".add-btn")
+        self.page_a.wait_for_timeout(1000)
+
+        # User A should now have 3 items
+        user_a_count = len(self.page_a.locator(".list-item").all())
+        user_b_count = len(self.page_b.locator(".list-item").all())
+        self.assertEqual(user_a_count, 3)
+        # User B should still think it has 2 items (outdated state)
+        self.assertEqual(user_b_count, 2)
+
+        # Now bring User B back online
+        self.page_b.evaluate("window.TEST_OFFLINE_MODE = false")
+        self.page_b.wait_for_timeout(2000)
+
+        # Now let user A add an additional item while user B is online, should trigger refresh
+        self.page_a.fill("#itemName", "Count Item 4")
+        self.page_a.click(".add-btn")
+        self.page_a.wait_for_timeout(1000)
+
+        # User B should now see the correct count after force refresh
+        user_a_count = len(self.page_a.locator(".list-item").all())
+        user_b_count = len(self.page_b.locator(".list-item").all())
+        self.assertEqual(user_a_count, 4)
+
+        # Check that a warning was logged for count mismatch
+        warn_a = self.errors_a.get_all_warnings()
+        warn_b = self.errors_b.get_all_warnings()
+        self.assertEqual(warn_a, [], "No warnings should be present on page A")
+        self.assertEqual(len(warn_b), 1, "page B should have a refresh warning")
+        self.assertIn(
+            "refreshing...", warn_b[0], "page B should have a refresh warning"
+        )
+        # Assert no errors occurred (warnings are expected)
+        assert_no_errors(self.errors_a, "test_count_mismatch_handling_page_a")
+        assert_no_errors(self.errors_b, "test_count_mismatch_handling_page_b")
+
 
 if __name__ == "__main__":
     # Configure logging

@@ -194,7 +194,7 @@ class BrowserErrorCapture:
         ix = 0
         for ix, msg in enumerate(self.console_messages[start_index:]):
             level_icon = "ℹ️"
-            if msg["level"] == "warn":
+            if msg["level"] in ("warn", "warning"):
                 level_icon = "⚠️"
             elif msg["level"] == "error":
                 level_icon = "❌"
@@ -205,6 +205,14 @@ class BrowserErrorCapture:
             return 0
 
         return ix + start_index + 1
+
+    def get_all_warnings(self):
+        """Get all console warnings"""
+        msgs = []
+        for msg in self.console_messages:
+            if msg["level"] in ("warn", "warning"):
+                msgs.append(msg["text"])
+        return msgs
 
 
 def capture_browser_errors(page: Page, context: BrowserContext) -> BrowserErrorCapture:

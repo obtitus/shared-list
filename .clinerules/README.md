@@ -35,7 +35,7 @@ make lint test
 uv run <file.py>
 ```
 
-if a test fails, run only that test with e.g.
+if a test fails, run only that test with e.g. to run only `test_touch_interactions`:
 ```
 uv run python -m unittest discover tests -k test_touch_interactions
 ```

@@ -4,7 +4,7 @@
 - [x] Remove the top "Shared list" banner
 - [x] Move the "Add" button to the same line as the Add item input field, make it dynamic taking up min-width 60 (matching item buttons) and maximum 1/4 of the total width
 - [x] When a user-reconnects, especially on iphone going from lock to unlocked screen, ensure a refresh is done
-- [ ] When sending events, always include both the previous and new state, i.e. when toggeling item-checkbox, don't send "toggle" send "false -> true", if the reciever sees a missmatch in its own state, do a refresh first. When adding/removing items, include number of items before and after.
+- [x] When sending events, always include both the previous and new state, i.e. when toggeling item-checkbox, don't send "toggle" send "false -> true", if the reciever sees a missmatch in its own state, do a refresh first. When adding/removing items, include number of items before and after.
 
 ## Done
 - [x] Project initialization and `.clinerules` setup

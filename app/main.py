@@ -25,6 +25,13 @@ def get_app_version() -> str:
         return "0.0.0"
 
 
+# Helper functions
+def get_item_count(conn, list_id: int) -> int:
+    """Get the count of items for a specific list"""
+    cursor = conn.execute("SELECT COUNT(*) FROM items WHERE list_id = ?", (list_id,))
+    return cursor.fetchone()[0]
+
+
 # Event broadcasting system
 class EventBroadcaster:
     def __init__(self):
@@ -243,6 +250,9 @@ async def create_item(item: ItemCreate, request: Request, list_id: int = 1):
     client_id = request.headers.get("X-Client-ID")
 
     with get_db() as conn:
+        # Get item count before creation
+        old_count = get_item_count(conn, list_id)
+
         if item.order_index > 0:
             # Insert at specific position - shift higher order_indices up
             conn.execute(
@@ -272,11 +282,16 @@ async def create_item(item: ItemCreate, request: Request, list_id: int = 1):
         )
         new_item = cursor.fetchone()
 
-        # Broadcast item creation event
+        # Get item count after creation
+        new_count = get_item_count(conn, list_id)
+
+        # Broadcast item creation event with count information
         await broadcaster.broadcast(
             {
                 "type": "item_created",
                 "item": dict(new_item),
+                "old_count": old_count,
+                "new_count": new_count,
                 "list_id": list_id,
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
@@ -338,15 +353,23 @@ async def delete_item(item_id: int, request: Request):
 
         list_id = row["list_id"]
 
+        # Get item count before deletion
+        old_count = get_item_count(conn, list_id)
+
         # Delete the item
         conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
         conn.commit()
 
-        # Broadcast item deletion event
+        # Get item count after deletion
+        new_count = get_item_count(conn, list_id)
+
+        # Broadcast item deletion event with count information
         await broadcaster.broadcast(
             {
                 "type": "item_deleted",
                 "item_id": item_id,
+                "old_count": old_count,
+                "new_count": new_count,
                 "list_id": list_id,
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
@@ -371,20 +394,24 @@ async def toggle_item(item_id: int, request: Request):
         if row is None:
             raise HTTPException(status_code=404, detail="Item not found")
 
-        # Toggle the completed status
-        new_status = not bool(row["completed"])
+        # Get current state before update
+        old_status = bool(row["completed"])
+        new_status = not old_status
         list_id = row["list_id"]
+
+        # Update the completed status
         conn.execute(
             "UPDATE items SET completed = ? WHERE id = ?", (new_status, item_id)
         )
         conn.commit()
 
-        # Broadcast item toggle event
+        # Broadcast item toggle event with both old and new states
         await broadcaster.broadcast(
             {
                 "type": "item_toggled",
                 "item_id": item_id,
-                "completed": new_status,
+                "old_state": old_status,
+                "new_state": new_status,
                 "list_id": list_id,
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
@@ -435,13 +462,13 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
         )
         conn.commit()
 
-        # Broadcast item reorder event
+        # Broadcast item reorder event with both old and new states
         await broadcaster.broadcast(
             {
                 "type": "item_reordered",
                 "item_id": item_id,
-                "old_order": current_order,
-                "new_order": new_order,
+                "old_state": current_order,
+                "new_state": new_order,
                 "list_id": list_id,
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
