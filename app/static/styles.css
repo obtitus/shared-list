@@ -154,7 +154,7 @@ body {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-lg);
 }
 
 /* Add Item Section */
@@ -697,8 +697,12 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .app-header {
+        padding: var(--spacing-md);
+    }
     .main-content {
         padding: var(--spacing-md);
+        gap: var(--spacing-md);
     }
 
     .form-group {
@@ -739,12 +743,21 @@ body {
 }
 
 @media (max-width: 480px) {
+    .app-header {
+        padding: var(--spacing-sm);
+    }
     .main-content {
         padding: var(--spacing-sm);
         gap: var(--spacing-sm);
     }
 
     .shopping-list-section {
+        padding: var(--spacing-sm);
+    }
+    .add-item-form {
+        gap: var(--spacing-sm);
+    }
+    .add-item-section {
         padding: var(--spacing-sm);
     }
 
@@ -758,6 +771,12 @@ body {
 
     .list-item {
         padding: var(--spacing-sm);
+    }
+
+    .list-header {
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+        padding-bottom: var(--spacing-sm);
     }
 
     .item-name {

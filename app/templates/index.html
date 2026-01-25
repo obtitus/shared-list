@@ -43,6 +43,10 @@
             <!-- Add Item Form -->
             <section class="add-item-section">
                 <form class="add-item-form" id="addItemForm">
+                    <div class="connection-status" id="connectionStatus">
+                        <span class="status-dot"></span>
+                    </div>
+
                     <input
                         type="text"
                         id="itemName"
@@ -57,9 +61,6 @@
             <!-- Shopping List -->
             <section class="shopping-list-section">
                 <div class="list-header">
-                    <div class="connection-status" id="connectionStatus">
-                        <span class="status-dot"></span>
-                    </div>
                     <h2 class="list-title" title="Click to edit list name">Shopping List</h2>
                     <div class="list-actions">
                         <button class="export-btn" id="exportBtn">📤 Export</button>
