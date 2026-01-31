@@ -2,7 +2,7 @@
 
 ## To-Do
 - [x] Reduce the number of toast notifications, leave errors and external events and move the rest to console messages
-- [ ] Ensure rows are allowed to grow in height if the text overflows
+- [x] Ensure rows are allowed to grow in height if the text overflows
 - [ ] Configure playwright to capture a screenshot of each target platform
 
 ## Done

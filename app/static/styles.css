@@ -330,8 +330,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    max-height: 60vh;
-    overflow-y: auto;
 }
 
 /* Custom scrollbar for OLED theme */
@@ -363,7 +361,6 @@ body {
     border-radius: var(--radius-md);
     transition: all 0.2s ease;
     animation: slideIn 0.3s ease-out;
-    min-height: 44px; /* Minimum touch target size */
     position: relative;
 }
 
@@ -486,9 +483,11 @@ body {
     font-weight: var(--font-weight-medium);
     color: var(--text-primary);
     flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-wrap: break-word;
+    line-height: 1.4;
 }
 
 .item-name.empty-spacer {
@@ -721,10 +720,6 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--spacing-md);
-    }
-
-    .shopping-list {
-        max-height: 50vh;
     }
 
     .shopping-list-section {
