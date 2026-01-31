@@ -349,23 +349,20 @@ class TestShoppingListPWA(unittest.TestCase):
 
     def test_toast_notifications(self):
         """Test toast notification system"""
-        # Add an item to trigger a success toast
+        # Add an item to trigger console logging (success toasts removed)
         self.page.fill("#itemName", "Toast Test Item")
         # Quantity input removed
         self.page.click(".add-btn")
 
-        # Wait for the item-added success toast (not the SSE connection toast)
-        self.page.wait_for_selector(
-            '.toast.success:has-text("Item added successfully")', timeout=5000
-        )
+        # Check that no success toast appears (success notifications moved to console)
+        self.page.wait_for_timeout(2000)
         success_toast = self.page.locator(
             '.toast.success:has-text("Item added successfully")'
         )
-        self.assertTrue(success_toast.is_visible())
-
-        # Check that the toast disappears after a few seconds
-        self.page.wait_for_timeout(4000)
-        self.assertFalse(success_toast.is_visible())
+        self.assertFalse(
+            success_toast.is_visible(),
+            "Success toast should not appear (moved to console)",
+        )
 
         # Test error toast by going offline and trying to add an item
         self.page.context.set_offline(True)

@@ -1,10 +1,9 @@
 # Project Progress
 
 ## To-Do
-- [x] Remove the top "Shared list" banner
-- [x] Move the "Add" button to the same line as the Add item input field, make it dynamic taking up min-width 60 (matching item buttons) and maximum 1/4 of the total width
-- [x] When a user-reconnects, especially on iphone going from lock to unlocked screen, ensure a refresh is done
-- [x] When sending events, always include both the previous and new state, i.e. when toggeling item-checkbox, don't send "toggle" send "false -> true", if the reciever sees a missmatch in its own state, do a refresh first. When adding/removing items, include number of items before and after.
+- [x] Reduce the number of toast notifications, leave errors and external events and move the rest to console messages
+- [ ] Ensure rows are allowed to grow in height if the text overflows
+- [ ] Configure playwright to capture a screenshot of each target platform
 
 ## Done
 - [x] Project initialization and `.clinerules` setup
@@ -36,3 +35,7 @@
 - [x] Reduce the SSE connection retries (especially when the server is actually oflline, there is no need to constantly refresh) and delay the initial SSE connection so the page fully loads before a connection attempt is made
 - [x] Have the database name depend on the port number, migration is not needed.
 - [x] Test are slow now as they need to run serially especially the `npx playwright test tests/basic-pwa.spec.ts`, ensure tests can write into unique databases so each project can run with its own instance.
+- [x] Remove the top "Shared list" banner
+- [x] Move the "Add" button to the same line as the Add item input field, make it dynamic taking up min-width 60 (matching item buttons) and maximum 1/4 of the total width
+- [x] When a user-reconnects, especially on iphone going from lock to unlocked screen, ensure a refresh is done
+- [x] When sending events, always include both the previous and new state, i.e. when toggeling item-checkbox, don't send "toggle" send "false -> true", if the reciever sees a missmatch in its own state, do a refresh first. When adding/removing items, include number of items before and after.

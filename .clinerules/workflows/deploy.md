@@ -1,4 +1,8 @@
-To deploy, don't continue if you are in-doubt or if steps are not working out. Failing to deploy is also a success.
+**Execution Rule:** Once the user initiates this deployment task, consider yourself "Authorized" to proceed through all steps sequentially.
+- Only stop for a "Human-in-the-loop" check if a command returns a Non-Zero exit code (an error).
+- If `make lint test` or `make deploy` fails, STOP and report.
+- Otherwise, proceed from version bumping to git push without intermediate confirmation.
+
 * Check that progress.md is up-to-date, reflecting the current project status where:
  [x] tasks are implemented and tested
  while [ ] are not implemented (Remining todo items are ok, but check that the functionality is indeed missing, or if the progress.md is just outdated).

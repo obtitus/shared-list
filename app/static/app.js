@@ -319,7 +319,7 @@ function startListNameEdit() {
 
                 currentList.name = newName;
                 updateListTitle();
-                showToast('List name updated successfully', 'success');
+                console.log('List name updated successfully');
             } catch (error) {
                 showToast('Failed to update list name', 'error');
                 console.error('Update list name error:', error);
@@ -359,7 +359,7 @@ async function loadShoppingList() {
         shoppingList = await apiRequest(API_BASE_URL);
         renderShoppingList();
         updateEmptyState();
-        showToast('Shopping list loaded successfully', 'success');
+        console.log('Shopping list loaded successfully');
     } catch (error) {
         showToast('Failed to load shopping list', 'error');
         console.error('Load shopping list error:', error);
@@ -440,7 +440,7 @@ async function handleAddItem(e) {
         // Reset form
         elements.addItemForm.reset();
 
-        showToast('Item added successfully', 'success');
+        console.log('Item added successfully');
     } catch (error) {
         showToast('Failed to add item', 'error');
         console.error('Add item error:', error);
@@ -467,7 +467,7 @@ async function handleToggleItem(itemId) {
 
     try {
         await apiRequest(API_TOGGLE_URL(itemId), { method: 'PATCH' });
-        showToast('Item updated successfully', 'success');
+        console.log('Item updated successfully');
     } catch (error) {
         // Revert optimistic update on error
         shoppingList[itemIndex].completed = !shoppingList[itemIndex].completed;
@@ -501,7 +501,7 @@ async function handleDeleteItem(itemId) {
 
     try {
         await apiRequest(API_ITEM_URL(itemId), { method: 'DELETE' });
-        showToast('Item deleted successfully', 'success');
+        console.log('Item deleted successfully');
     } catch (error) {
         // Restore item on error
         shoppingList.splice(itemIndex, 0, deletedItem);
@@ -532,7 +532,7 @@ async function handleClearAll() {
 
     try {
         await apiRequest(API_CLEAR_URL, { method: 'DELETE' });
-        showToast('All items cleared successfully', 'success');
+        console.log('All items cleared successfully');
     } catch (error) {
         // Restore on error
         shoppingList = backupList;
@@ -578,7 +578,7 @@ async function handleExport() {
         // Try Web Share API first (excellent iOS support)
         if (navigator.share && navigator.canShare && navigator.canShare(exportData)) {
             await navigator.share(exportData);
-            showToast('List shared successfully', 'success');
+            console.log('List shared successfully');
             return;
         }
     } catch (error) {
@@ -594,7 +594,7 @@ async function handleExport() {
     } catch (error) {
         console.error('Clipboard API failed:', error);
 
-        showToast('List logged to console - copy manually', 'info');
+        console.log('List logged to console - copy manually');
     }
 }
 
@@ -991,7 +991,7 @@ function startItemNameEdit(itemId) {
                         order_index: item.order_index
                     })
                 });
-                showToast('Item name updated successfully', 'success');
+                console.log('Item name updated successfully');
             } catch (error) {
                 // Revert on error
                 shoppingList[itemIndex].name = currentName;
@@ -1166,7 +1166,7 @@ async function handleDrop(event) {
             method: 'PATCH'
         });
 
-        showToast('Item reordered successfully', 'success');
+        console.log('Item reordered successfully');
     } catch (error) {
         // Revert on error
         await loadShoppingList();
@@ -1299,7 +1299,7 @@ async function handleTouchEnd(event) {
                     method: 'PATCH'
                 });
 
-                showToast('Item reordered successfully', 'success');
+                console.log('Item reordered successfully');
             } catch (error) {
                 // Revert on error
                 await loadShoppingList();
@@ -1823,7 +1823,7 @@ async function coordinateConnectionAndRefresh(source) {
         try {
             await loadShoppingList();
             await loadListInfo();
-            showToast(`Data refreshed after ${source}`, 'success');
+            console.log(`Data refreshed after ${source}`);
         } catch (error) {
             console.error(`Refresh failed after ${source}:`, error);
             showToast('Failed to refresh data after reconnection', 'error');
