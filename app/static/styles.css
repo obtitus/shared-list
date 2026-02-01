@@ -481,6 +481,14 @@ body {
     text-overflow: clip;
     word-wrap: break-word;
     line-height: 1.4;
+
+    -webkit-hyphens: auto; /* For Safari/iOS */
+    -ms-hyphens: auto;      /* For older IE/Edge */
+    hyphens: auto;
+    hyphenate-limit-chars: 10 4 4;
+
+    /* Optional: Ensure the word actually breaks if it's too long */
+    overflow-wrap: break-word;
 }
 
 .item-name.empty-spacer {
