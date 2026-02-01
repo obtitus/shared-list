@@ -784,25 +784,25 @@ function renderShoppingList() {
         listItem.onclick = () => handleSelectItem(item.id);
 
         listItem.innerHTML = `
-            <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${item.id})" title="Drag to reorder">
+            <div class="drag-handle touch-target" draggable="true" ondragstart="handleDragStart(event, ${item.id})" title="Drag to reorder">
                 ⋮⋮
             </div>
 
-            <button class="item-checkbox ${item.completed ? 'checked' : ''}"
+            <button class="item-checkbox touch-target ${item.completed ? 'checked' : ''}"
                     onclick="handleToggleItem(${item.id})"
                     aria-label="${item.completed ? 'Mark as incomplete' : 'Mark as complete'}">
             </button>
 
             <div class="item-content">
                 <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
-                <button class="item-btn edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
+                <button class="item-btn touch-target edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
                         aria-label="Edit ${escapeHtml(item.name || 'item')}">
                     ✏️
                 </button>
             </div>
 
             <div class="item-actions">
-                <button class="item-btn delete-btn" onclick="handleDeleteItem(${item.id})"
+                <button class="item-btn touch-target delete-btn" onclick="handleDeleteItem(${item.id})"
                         aria-label="Delete ${escapeHtml(item.name)}">
                     🗑️
                 </button>
@@ -1126,14 +1126,6 @@ async function handleDrop(event) {
 
     if (targetIndex === -1 || draggedIndex === -1) return;
 
-    // Calculate new order index
-    let newOrderIndex;
-    if (insertBefore) {
-        newOrderIndex = shoppingList[targetIndex].order_index;
-    } else {
-        newOrderIndex = shoppingList[targetIndex].order_index + 1;
-    }
-
     // Remove dragged item from current position
     const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
 
@@ -1151,6 +1143,10 @@ async function handleDrop(event) {
     shoppingList.forEach((item, index) => {
         item.order_index = index + 1;
     });
+
+    // Calculate new order index for API call (based on final position)
+    const finalDraggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
+    const newOrderIndex = shoppingList[finalDraggedIndex].order_index;
 
     // Render updated list
     renderShoppingList();
@@ -1272,14 +1268,6 @@ async function handleTouchEnd(event) {
         const draggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
 
         if (targetIndex !== -1 && draggedIndex !== -1) {
-            // Calculate new order index
-            let newOrderIndex;
-            if (insertBefore) {
-                newOrderIndex = shoppingList[targetIndex].order_index;
-            } else {
-                newOrderIndex = shoppingList[targetIndex].order_index + 1;
-            }
-
             // Reorder locally
             const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
             let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
@@ -1289,6 +1277,10 @@ async function handleTouchEnd(event) {
             shoppingList.forEach((item, index) => {
                 item.order_index = index + 1;
             });
+
+            // Calculate new order index for API call (based on final position)
+            const finalDraggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
+            const newOrderIndex = shoppingList[finalDraggedIndex].order_index;
 
             // Render updated list
             renderShoppingList();

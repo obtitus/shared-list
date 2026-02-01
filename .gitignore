@@ -12,6 +12,7 @@ wheels/
 # Playwright files
 node_modules/
 test-results/
+unittest_screenshots/
 
 #
 *.log

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type TestInfo } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   // Handle confirm dialogs
@@ -297,6 +297,49 @@ test.describe('Basic PWA Functionality', () => {
     const refreshedItems = page.locator('.list-item .item-name');
     const refreshedOrder = await refreshedItems.allTextContents();
     expect(refreshedOrder).toEqual(['Second Item', 'First Item', 'Third Item']);
+  });
+
+  test('should capture screenshots for visual verification', async ({ page, browserName}, testInfo) => {
+    // Add sample items to show a populated state
+    const sampleItems = [
+      'Milk',
+      'Bread',
+      'Eggs',
+      'Apples',
+      'Bananas',
+      'Chicken Breast',
+      'Long Item Name That Should Wrap to Multiple Lines',
+      'Second Item Name That Should Wrap to different Multiple Lines'
+    ];
+
+    for (const itemName of sampleItems) {
+      await page.fill('#itemName', itemName);
+      await page.click('.add-btn');
+      await page.waitForTimeout(100);
+    }
+
+    // Mark some items as completed to show different states
+    const firstItem = page.locator('.list-item').nth(0);
+    await firstItem.locator('.item-checkbox').click();
+    await page.waitForTimeout(500);
+
+    const thirdItem = page.locator('.list-item').nth(2);
+    await thirdItem.locator('.item-checkbox').click();
+    await page.waitForTimeout(500);
+
+    // Capture full page screenshot with project name for device identification
+    const projectName = testInfo.project.name;
+    const screenshotName = `pwa-${projectName.replace(/\s+/g, '-').toLowerCase()}.png`;
+
+    await page.screenshot({
+      path: `unittest_screenshots/${screenshotName}`,
+      fullPage: true
+    });
+
+    // Verify the main elements are visible
+    await expect(page.locator('#shoppingList')).toBeVisible();
+    await expect(page.locator('#addItemForm')).toBeVisible();
+    await expect(page.locator('#connectionStatus')).toBeVisible();
   });
 
   test.skip('should generate unique client IDs for different browser contexts', async ({ browser }) => {

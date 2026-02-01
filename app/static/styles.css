@@ -96,7 +96,6 @@ body {
     color: var(--text-primary);
     font-family: var(--font-family);
     font-size: var(--font-size-base);
-    line-height: 1.6;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
 }
@@ -219,7 +218,6 @@ body {
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
     text-transform: uppercase;
     letter-spacing: 1px;
-    min-width: 120px;
     max-width: 25%;
     flex-shrink: 0;
     height: 48px; /* Match input height */
@@ -276,16 +274,14 @@ body {
     gap: var(--spacing-sm);
 }
 
-.export-btn, .import-btn, .clear-btn, .refresh-btn {
+.export-btn.touch-target, .import-btn.touch-target, .clear-btn.touch-target, .refresh-btn.touch-target {
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     border: 1px solid var(--border-color);
     background: transparent;
     color: var(--text-secondary);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s ease;
+    min-width:44px;
 }
 
 .export-btn:hover, .import-btn:hover, .clear-btn:hover, .refresh-btn:hover {
@@ -329,7 +325,6 @@ body {
 .shopping-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
 }
 
 /* Custom scrollbar for OLED theme */
@@ -355,25 +350,24 @@ body {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     transition: all 0.2s ease;
     animation: slideIn 0.3s ease-out;
     position: relative;
+    padding: var(--spacing-xs);
 }
 
 /* Drag Handle */
-.drag-handle {
-    width: 20px;
-    height: 20px;
+.drag-handle.touch-target {
+    width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
     cursor: grab;
-    font-size: 12px;
+    font-size: var(--font-size-lg);
     user-select: none;
     border-radius: var(--radius-sm);
     transition: all 0.2s ease;
@@ -428,9 +422,10 @@ body {
 }
 
 .list-item.completed {
-    opacity: 0.6;
-    background: rgba(59, 130, 246, 0.05);
-    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(246, 218, 59, 0.1);
+    border-color: var(--accent-red);
+    box-shadow: 0 0 10px rgba(246, 218, 59, 0.1);
+    opacity: 0.9;
 }
 
 .list-item.selected {
@@ -439,17 +434,10 @@ body {
     box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
 }
 
-.item-checkbox {
-    width: 20px;
-    height: 20px;
+.item-checkbox.touch-target {
+    width: 44px;
     border: 2px solid var(--border-color);
-    border-radius: var(--radius-sm);
     background: transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -461,13 +449,14 @@ body {
     background: var(--accent-blue);
     border-color: var(--accent-blue);
     box-shadow: var(--glow-blue);
+    opacity: 0.85;
 }
 
 .item-checkbox.checked::after {
     content: '✓';
     color: #ffffff;
     font-weight: var(--font-weight-bold);
-    font-size: 12px;
+    font-size: var(--font-size-lg);
 }
 
 .item-content {
@@ -515,17 +504,23 @@ body {
     gap: var(--spacing-xs);
 }
 
-/* Shared base class for item buttons */
-.item-btn {
-    padding: var(--spacing-xs) var(--spacing-sm);
+/* Touch target constraint class - mobile-only 44px minimum height */
+.touch-target {
+    /* Desktop: no height constraint */
     border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
     transition: all 0.2s ease;
-    min-width: 60px;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Shared base class for item buttons */
+.item-btn.touch-target {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-width: 60px;
     gap: var(--spacing-xs);
 }
 
@@ -713,7 +708,8 @@ body {
     }
 
     .add-btn {
-        padding: var(--spacing-md) var(--spacing-lg);
+        font-size: var(--font-size-s);
+        padding: var(--spacing-md) var(--spacing-md);
     }
 
     .list-header {
@@ -735,6 +731,10 @@ body {
     .toast {
         width: 100%;
     }
+
+    .touch-target {
+        min-height: 44px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -744,6 +744,11 @@ body {
     .main-content {
         padding: var(--spacing-sm);
         gap: var(--spacing-sm);
+    }
+
+    .export-btn, .import-btn, .clear-btn, .refresh-btn {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: var(--font-size-xs);
     }
 
     .shopping-list-section {
@@ -764,6 +769,11 @@ body {
         padding: var(--spacing-sm);
     }
 
+    .list-actions {
+        display: flex;
+        gap: 0;
+    }
+
     .list-item {
         padding: var(--spacing-sm);
     }
@@ -782,7 +792,7 @@ body {
     }
 
     .add-btn {
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-xs);
         padding: var(--spacing-sm) var(--spacing-md);
     }
 }

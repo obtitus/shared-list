@@ -71,7 +71,7 @@ export default defineConfig({
 
     /* Test against mobile viewports. */
     {
-      name: 'Mobile Chrome',
+      name: 'mobile-chrome',
       fullyParallel: false, // Tests within Mobile Chrome run serially
       use: {
         ...devices['Pixel 5'],
@@ -79,7 +79,7 @@ export default defineConfig({
       },
     },
     {
-      name: 'Mobile Safari',
+      name: 'mobile-safari',
       fullyParallel: false, // Tests within Mobile Safari run serially
       use: {
         ...devices['iPhone 12'],
@@ -87,7 +87,7 @@ export default defineConfig({
       },
     },
     {
-      name: 'iPhone SE',
+      name: 'iphone-se',
       fullyParallel: false, // Tests within iPhone SE run serially
       use: {
         ...devices['iPhone SE'],
@@ -95,7 +95,7 @@ export default defineConfig({
       },
     },
     {
-      name: 'iPhone XR',
+      name: 'iphone-xr',
       fullyParallel: false, // Tests within iPhone XR run serially
       use: {
         ...devices['iPhone XR'],
