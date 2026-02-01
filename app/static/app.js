@@ -784,6 +784,7 @@ function renderShoppingList() {
         listItem.onclick = () => handleSelectItem(item.id);
 
         listItem.innerHTML = `
+        <div class="item-content">
             <div class="drag-handle touch-target" draggable="true" ondragstart="handleDragStart(event, ${item.id})" title="Drag to reorder">
                 ⋮⋮
             </div>
@@ -793,13 +794,11 @@ function renderShoppingList() {
                     aria-label="${item.completed ? 'Mark as incomplete' : 'Mark as complete'}">
             </button>
 
-            <div class="item-content">
-                <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
-                <button class="item-btn touch-target edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
-                        aria-label="Edit ${escapeHtml(item.name || 'item')}">
-                    ✏️
-                </button>
-            </div>
+            <span class="item-name ${!item.name ? 'empty-spacer' : ''}">${item.name ? escapeHtml(item.name) : '—'}</span>
+            <button class="item-btn touch-target edit-btn" onclick="event.stopPropagation(); console.log('Edit button clicked for item:', ${item.id}); startItemNameEdit(${item.id})"
+                    aria-label="Edit ${escapeHtml(item.name || 'item')}">
+                ✏️
+            </button>
 
             <div class="item-actions">
                 <button class="item-btn touch-target delete-btn" onclick="handleDeleteItem(${item.id})"
@@ -807,6 +806,7 @@ function renderShoppingList() {
                     🗑️
                 </button>
             </div>
+        </div>
         `;
 
         // Add passive touch event listeners for better scrolling performance

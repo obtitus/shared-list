@@ -219,7 +219,6 @@ body {
     text-transform: uppercase;
     letter-spacing: 1px;
     max-width: 25%;
-    flex-shrink: 0;
     height: 48px; /* Match input height */
     box-sizing: border-box;
 }
@@ -271,6 +270,7 @@ body {
 
 .list-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
 }
 
@@ -281,8 +281,12 @@ body {
     border: 1px solid var(--border-color);
     background: transparent;
     color: var(--text-secondary);
-    min-width:44px;
+    flex-basis:0;
+    flex-grow:1;
+    min-width: 44px;
 }
+
+
 
 .export-btn:hover, .import-btn:hover, .clear-btn:hover, .refresh-btn:hover {
     background: var(--bg-secondary);
@@ -371,7 +375,6 @@ body {
     user-select: none;
     border-radius: var(--radius-sm);
     transition: all 0.2s ease;
-    flex-shrink: 0;
 }
 
 .drag-handle:hover {
@@ -438,7 +441,6 @@ body {
     width: 44px;
     border: 2px solid var(--border-color);
     background: transparent;
-    flex-shrink: 0;
 }
 
 .item-checkbox:hover {
@@ -460,8 +462,9 @@ body {
 }
 
 .item-content {
-    flex: 1;
+    flex-grow: 1;
     display: flex;
+    flex-wrap:wrap;
     align-items: center;
     gap: var(--spacing-sm);
     min-width: 0; /* Allow text truncation */
@@ -471,7 +474,8 @@ body {
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-medium);
     color: var(--text-primary);
-    flex: 1;
+    flex-grow: 1;
+    flex-basis: 0;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
@@ -513,7 +517,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
 }
 
 /* Shared base class for item buttons */
