@@ -110,7 +110,13 @@ body {
 
 /* Header Styles - Now empty, kept for potential future use */
 .app-header {
-    /* Empty header - connection status moved to list header */
+    width: 100%;
+    max-width: 1150px;
+    margin: 0 auto;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid var(--border-color);
+    z-index: 100;
 }
 
 .connection-status {
@@ -169,7 +175,7 @@ body {
     display: flex;
     flex-direction: row;
     gap: var(--spacing-md);
-    align-items: flex-start;
+    align-items: center;
 }
 
 .form-group {
