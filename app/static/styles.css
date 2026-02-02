@@ -708,9 +708,6 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .app-header {
-        padding: var(--spacing-md);
-    }
     .main-content {
         padding: var(--spacing-md);
         gap: var(--spacing-md);
@@ -755,9 +752,6 @@ body {
 }
 
 @media (max-width: 480px) {
-    .app-header {
-        padding: var(--spacing-sm);
-    }
     .main-content {
         padding: var(--spacing-sm);
         gap: var(--spacing-sm);
@@ -774,16 +768,9 @@ body {
     .add-item-form {
         gap: var(--spacing-sm);
     }
-    .add-item-section {
-        padding: var(--spacing-sm);
-    }
 
     .app-title {
         font-size: var(--font-size-lg);
-    }
-
-    .app-header {
-        padding: var(--spacing-sm);
     }
 
     .list-actions {
