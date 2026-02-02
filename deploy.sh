@@ -219,5 +219,21 @@ done
 
 print_success "Deployment successful!"
 print_success "App available at http://$DEPLOY_HOST:19099"
+
+# Verify deployed version
+print_step "Verifying deployed version..."
+DEPLOYED_VERSION=$(curl -s http://$DEPLOY_HOST:19099/api/version | jq -r '.version' 2>/dev/null || echo "unknown")
+if [ "$DEPLOYED_VERSION" = "unknown" ]; then
+    print_error "Failed to retrieve version from deployed application"
+    print_info "This might be normal if jq is not installed on the local machine"
+    print_info "Please manually verify the version at http://$DEPLOY_HOST:19099/api/version"
+else
+    if [ "$DEPLOYED_VERSION" != "$NEW_VERSION" ]; then
+        print_error "Version mismatch! Expected: $NEW_VERSION, Got: $DEPLOYED_VERSION"
+        exit 1
+    fi
+    print_success "Version verification passed: $DEPLOYED_VERSION"
+fi
+
 print_success "New version deployed: $NEW_VERSION"
 print_success "Git tag created: v$NEW_VERSION"

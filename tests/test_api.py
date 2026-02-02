@@ -86,6 +86,17 @@ class TestShoppingListAPI(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["message"], "Shared Shopping List API")
 
+    def test_version_endpoint(self):
+        """Test the version endpoint"""
+        logger.info("🏥 Testing version endpoint...")
+        response = requests.get(f"{self.BASE_URL}/api/version", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn("version", data)
+        self.assertIsInstance(data["version"], str)
+        self.assertRegex(data["version"], r"^\d+\.\d+\.\d+$")
+
     def test_get_items_initial(self):
         """Test getting initial items"""
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)

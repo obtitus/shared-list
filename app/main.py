@@ -150,6 +150,12 @@ async def api_info():
     return {"message": "Shared Shopping List API"}
 
 
+@app.get("/api/version")
+async def get_version():
+    """Get current application version"""
+    return {"version": get_app_version()}
+
+
 @app.get("/lists", response_model=List[ShoppingList])
 async def get_lists():
     """Get all shopping lists"""
