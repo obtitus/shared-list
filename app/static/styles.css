@@ -467,6 +467,14 @@ body {
     font-size: var(--font-size-lg);
 }
 
+/* Add invisible checkbox content for unchecked state to maintain consistent height */
+.item-checkbox.touch-target:not(.checked)::after {
+    content: '✓';
+    color: transparent;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-lg);
+}
+
 .item-content {
     flex-grow: 1;
     display: flex;
