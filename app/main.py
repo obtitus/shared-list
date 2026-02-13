@@ -411,6 +411,14 @@ async def toggle_item(item_id: int, request: Request):
         )
         conn.commit()
 
+        # Get the complete updated item
+        cursor = conn.execute(
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE id = ?",
+            (item_id,),
+        )
+        updated_item = cursor.fetchone()
+        new_status = bool(updated_item["completed"])
+
         # Broadcast item toggle event with both old and new states
         await broadcaster.broadcast(
             {
@@ -424,7 +432,13 @@ async def toggle_item(item_id: int, request: Request):
             }
         )
 
-        return {"id": item_id, "completed": new_status}
+        return {
+            "id": item_id,
+            "completed": new_status,
+            "name": updated_item["name"],
+            "quantity": updated_item["quantity"],
+            "order_index": updated_item["order_index"],
+        }
 
 
 @app.patch("/items/{item_id}/reorder/{new_order}")
@@ -445,7 +459,13 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
         list_id = row["list_id"]
 
         if current_order == new_order:
-            return {"message": "Item order unchanged"}
+            # Return complete list even if no change
+            cursor = conn.execute(
+                "SELECT id, name, quantity, completed, order_index FROM items WHERE list_id = ? ORDER BY order_index, id",
+                (list_id,),
+            )
+            items = [dict(row) for row in cursor.fetchall()]
+            return {"message": "Item order unchanged", "items": items}
 
         # Update order indices to make room for the new position (within the same list)
         if new_order > current_order:
@@ -468,6 +488,13 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
         )
         conn.commit()
 
+        # Get the complete updated list
+        cursor = conn.execute(
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE list_id = ? ORDER BY order_index, id",
+            (list_id,),
+        )
+        items = [dict(row) for row in cursor.fetchall()]
+
         # Broadcast item reorder event with both old and new states
         await broadcaster.broadcast(
             {
@@ -481,7 +508,7 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
             }
         )
 
-        return {"id": item_id, "order_index": new_order}
+        return {"id": item_id, "order_index": new_order, "items": items}
 
 
 @app.delete("/items")

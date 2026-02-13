@@ -461,19 +461,32 @@ async function handleToggleItem(itemId) {
     const itemIndex = shoppingList.findIndex(item => item.id === itemId);
     if (itemIndex === -1) return;
 
-    // Optimistic update
-    shoppingList[itemIndex].completed = !shoppingList[itemIndex].completed;
-    renderShoppingList();
+    setLoading(true);
 
     try {
-        await apiRequest(API_TOGGLE_URL(itemId), { method: 'PATCH' });
-        console.log('Item updated successfully');
-    } catch (error) {
-        // Revert optimistic update on error
-        shoppingList[itemIndex].completed = !shoppingList[itemIndex].completed;
+        // Make API call first, don't update local state yet
+        const response = await apiRequest(API_TOGGLE_URL(itemId), { method: 'PATCH' });
+
+        // Extract the updated item from the response
+        // The API returns { id: ..., completed: ..., name: ..., quantity: ..., order_index: ... }
+        const updatedItem = {
+            id: response.id,
+            name: response.name,
+            quantity: response.quantity,
+            completed: response.completed,
+            order_index: response.order_index
+        };
+
+        // Only update local state after successful API call
+        shoppingList[itemIndex] = updatedItem;
         renderShoppingList();
+
+        console.log('Item toggled successfully');
+    } catch (error) {
         showToast('Failed to update item', 'error');
         console.error('Toggle item error:', error);
+    } finally {
+        setLoading(false);
     }
 }
 
@@ -871,14 +884,32 @@ function showToast(message, type = 'info') {
 }
 
 /**
- * Set Loading State
+ * Set Loading State with Smart Debouncing
  */
+let loadingTimeout = null;
+const LOADING_DELAY = 500; // ms - only show loading if operation takes longer than this
+
 function setLoading(loading) {
     isLoading = loading;
 
     if (isLoading) {
-        elements.loadingOverlay.style.display = 'flex';
+        // Clear any existing timeout
+        if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            loadingTimeout = null;
+        }
+
+        // Set a timeout to show loading overlay only if operation takes longer than LOADING_DELAY
+        loadingTimeout = setTimeout(() => {
+            elements.loadingOverlay.style.display = 'flex';
+            loadingTimeout = null;
+        }, LOADING_DELAY);
     } else {
+        // Clear timeout and hide loading immediately
+        if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            loadingTimeout = null;
+        }
         elements.loadingOverlay.style.display = 'none';
     }
 }
@@ -1053,6 +1084,80 @@ let touchStartY = 0;
 let touchStartX = 0;
 
 /**
+ * Unified reorder function with pessimistic updates
+ * @param {number} itemId - ID of item to reorder
+ * @param {number} newPosition - Target position (1-based)
+ */
+async function reorderItem(itemId, newPosition) {
+    if (!isOnline) {
+        showToast('Cannot reorder items while offline', 'error');
+        return false;
+    }
+
+    setLoading(true);
+
+    try {
+        // Make API call first, don't update local state yet
+        const response = await apiRequest(`/items/${itemId}/reorder/${newPosition}`, {
+            method: 'PATCH'
+        });
+
+        // Extract the updated list from the response
+        // The API returns { items: [...], id: ..., order_index: ... }
+        const updatedList = response.items || response;
+
+        // Only update local state after successful API call
+        shoppingList = updatedList;
+        renderShoppingList();
+
+        console.log('Item reordered successfully');
+        return true;
+    } catch (error) {
+        showToast('Failed to reorder item', 'error');
+        console.error('Reorder item error:', error);
+        return false;
+    } finally {
+        setLoading(false);
+    }
+}
+
+/**
+ * Calculate drop position for desktop drag-and-drop
+ * @param {Event} event - Drag event
+ * @param {HTMLElement} targetItem - Target item element
+ * @returns {number} Calculated position
+ */
+function calculateDropPosition(event, targetItem) {
+    const rect = targetItem.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertBefore = event.clientY < midpoint;
+
+    const targetIndex = shoppingList.findIndex(item =>
+        item.id === parseInt(targetItem.getAttribute('data-item-id'))
+    );
+
+    return insertBefore ? targetIndex + 1 : targetIndex + 2;
+}
+
+/**
+ * Calculate touch position for mobile drag-and-drop
+ * @param {TouchEvent} event - Touch event
+ * @param {HTMLElement} targetItem - Target item element
+ * @returns {number} Calculated position
+ */
+function calculateTouchPosition(event, targetItem) {
+    const rect = targetItem.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertBefore = event.changedTouches[0].clientY < midpoint;
+
+    const targetIndex = shoppingList.findIndex(item =>
+        item.id === parseInt(targetItem.getAttribute('data-item-id'))
+    );
+
+    return insertBefore ? targetIndex + 1 : targetIndex + 2;
+}
+
+/**
  * Handle drag start event
  */
 function handleDragStart(event, itemId) {
@@ -1112,62 +1217,17 @@ async function handleDrop(event) {
     const targetItemId = parseInt(targetItem.getAttribute('data-item-id'));
     if (targetItemId === draggedItemId) return;
 
-    const draggedItem = document.querySelector('.list-item.dragging');
-    if (!draggedItem) return;
-
-    // Determine new position
-    const rect = targetItem.getBoundingClientRect();
-    const midpoint = rect.top + rect.height / 2;
-    const insertBefore = event.clientY < midpoint;
-
-    // Find target index in current list
-    const targetIndex = shoppingList.findIndex(item => item.id === targetItemId);
-    const draggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
-
-    if (targetIndex === -1 || draggedIndex === -1) return;
-
-    // Remove dragged item from current position
-    const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
-
-    // Insert at new position
-    let insertIndex;
-    if (insertBefore) {
-        insertIndex = targetIndex;
-    } else {
-        insertIndex = targetIndex + 1;
-    }
-
-    shoppingList.splice(insertIndex, 0, draggedItemData);
-
-    // Update order indices
-    shoppingList.forEach((item, index) => {
-        item.order_index = index + 1;
-    });
-
-    // Calculate new order index for API call (based on final position)
-    const finalDraggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
-    const newOrderIndex = shoppingList[finalDraggedIndex].order_index;
-
-    // Render updated list
-    renderShoppingList();
-
-    // Clear drag state
+    // Clear drag state first
     document.querySelectorAll('.list-item.dragging, .list-item.drop-above, .list-item.drop-below').forEach(item => {
         item.classList.remove('dragging', 'drop-above', 'drop-below');
     });
 
-    try {
-        // Send reorder request to server
-        await apiRequest(`/items/${draggedItemId}/reorder/${newOrderIndex}`, {
-            method: 'PATCH'
-        });
+    // Calculate position and use unified helper
+    const newPosition = calculateDropPosition(event, targetItem);
+    const success = await reorderItem(draggedItemId, newPosition);
 
-        console.log('Item reordered successfully');
-    } catch (error) {
-        // Revert on error
-        await loadShoppingList();
-        showToast('Failed to reorder item', 'error');
-        console.error('Reorder item error:', error);
+    if (success) {
+        console.log('handleDrop: Item reordered successfully');
     }
 
     draggedItemId = null;
@@ -1198,9 +1258,6 @@ function handleTouchStart(event, itemId) {
 
     // Add visual feedback
     draggedElement.classList.add('dragging');
-
-    // Prevent scrolling while dragging
-    event.preventDefault();
 }
 
 /**
@@ -1256,48 +1313,12 @@ async function handleTouchEnd(event) {
     });
 
     if (targetItem && targetItem !== draggedElement && isOnline) {
-        const targetItemId = parseInt(targetItem.getAttribute('data-item-id'));
+        // Calculate position and use unified helper
+        const newPosition = calculateTouchPosition(event, targetItem);
+        const success = await reorderItem(draggedItemId, newPosition);
 
-        // Determine insert position
-        const rect = targetItem.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        const insertBefore = touch.clientY < midpoint;
-
-        // Find indices in current list
-        const targetIndex = shoppingList.findIndex(item => item.id === targetItemId);
-        const draggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
-
-        if (targetIndex !== -1 && draggedIndex !== -1) {
-            // Reorder locally
-            const draggedItemData = shoppingList.splice(draggedIndex, 1)[0];
-            let insertIndex = insertBefore ? targetIndex : targetIndex + 1;
-            shoppingList.splice(insertIndex, 0, draggedItemData);
-
-            // Update order indices
-            shoppingList.forEach((item, index) => {
-                item.order_index = index + 1;
-            });
-
-            // Calculate new order index for API call (based on final position)
-            const finalDraggedIndex = shoppingList.findIndex(item => item.id === draggedItemId);
-            const newOrderIndex = shoppingList[finalDraggedIndex].order_index;
-
-            // Render updated list
-            renderShoppingList();
-
-            try {
-                // Send reorder request to server
-                await apiRequest(`/items/${draggedItemId}/reorder/${newOrderIndex}`, {
-                    method: 'PATCH'
-                });
-
-                console.log('Item reordered successfully');
-            } catch (error) {
-                // Revert on error
-                await loadShoppingList();
-                showToast('Failed to reorder item', 'error');
-                console.error('Reorder item error:', error);
-            }
+        if (success) {
+            showToast('Item reordered from another device', 'info');
         }
     }
 

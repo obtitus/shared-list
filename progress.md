@@ -5,6 +5,7 @@
 - [x] Ensure rows are allowed to grow in height if the text overflows
 - [x] Configure playwright to capture a screenshot of each target platform
 - [x] Consolidate CSS properties into .touch-target base class
+- [x] Fix reorder and toggle functionality to not be optimistic updates, but actually get the server state
 
 ## Done
 - [x] Project initialization and `.clinerules` setup
