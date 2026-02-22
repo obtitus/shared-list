@@ -51,18 +51,19 @@ class TestDockerSetup(unittest.TestCase):
         self.assertEqual(response.status_code, 200, "Root endpoint failed")
 
         data = response.json()
-        self.assertEqual(
-            data["message"], "Shared Shopping List API", "Unexpected root response"
-        )
+        self.assertEqual(data["message"], "Shared Shopping List API", "Unexpected root response")
         logger.info("✅ Root endpoint working")
 
         # Test items endpoint
         response = requests.get(f"{self.BASE_URL}/items", timeout=10)
         self.assertEqual(response.status_code, 200, "Items endpoint failed")
 
-        items = response.json()
-        self.assertIsInstance(items, list, "Items endpoint returned non-list")
-        logger.info("✅ Items endpoint working, found %d items", len(items))
+        data = response.json()
+        self.assertIn("items", data, "Items endpoint missing 'items' key")
+        self.assertIn("repaired", data, "Items endpoint missing 'repaired' key")
+        self.assertIsInstance(data["items"], list, "Items endpoint returned non-list for 'items'")
+        self.assertIsInstance(data["repaired"], bool, "Items endpoint returned non-bool for 'repaired'")
+        logger.info("✅ Items endpoint working, found %d items", len(data["items"]))
 
 
 if __name__ == "__main__":

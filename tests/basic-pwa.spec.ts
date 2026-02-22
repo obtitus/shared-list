@@ -299,6 +299,305 @@ test.describe('Basic PWA Functionality', () => {
     expect(refreshedOrder).toEqual(['Second Item', 'First Item', 'Third Item']);
   });
 
+  test('should render items in correct order based on order_index', async ({ page }) => {
+    // Clear all items first
+    await page.click('#clearBtn');
+    await page.waitForTimeout(1000);
+
+    // Add items in reverse order to create order_index mismatch
+    // This will create items with order_index: 1, 2, 3 but added in reverse sequence
+    await page.fill('#itemName', 'Third Item');
+    await page.click('.add-btn');
+    await page.waitForTimeout(1000);
+
+    await page.fill('#itemName', 'Second Item');
+    await page.click('.add-btn');
+    await page.waitForTimeout(1000);
+
+    await page.fill('#itemName', 'First Item');
+    await page.click('.add-btn');
+    await page.waitForTimeout(1000);
+
+    // Verify items were added (should be 3 items total)
+    const itemCount = await page.locator('.list-item').count();
+    expect(itemCount).toBe(3);
+
+    // Get the order_index values from the DOM attributes
+    const orderIndices = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        return orderIndex ? parseInt(orderIndex) : 0;
+      });
+    });
+
+    // Get the item names in DOM order
+    const itemNames = await page.locator('.list-item .item-name').evaluateAll((items) => {
+      return items.map(item => {
+        const text = item.textContent;
+        return text ? text.trim() : '';
+      });
+    });
+
+    console.log('Order indices from DOM:', orderIndices);
+    console.log('Item names in DOM order:', itemNames);
+
+    // The renderShoppingList function doesn't sort by order_index, causing items to appear in wrong order
+    expect(orderIndices).toEqual([1, 2, 3]);
+    expect(itemNames).toEqual(['Third Item', 'Second Item', 'First Item']);
+  });
+
+  test('should maintain order after manual array manipulation order_index', async ({ page }) => {
+    // Clear all items first
+    await page.click('#clearBtn');
+    await page.waitForTimeout(1000);
+
+    // Add three items
+    const itemNames = ['Item A', 'Item B', 'Item C'];
+    for (const name of itemNames) {
+      await page.fill('#itemName', name);
+      await page.click('.add-btn');
+      await page.waitForTimeout(1000);
+    }
+
+    // Get initial order
+    const initialOrderIndices = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        return orderIndex ? parseInt(orderIndex) : 0;
+      });
+    });
+    console.log('Initial order indices:', initialOrderIndices);
+
+    // Manually manipulate the shoppingList array to simulate the bug scenario
+    // This simulates what happens when items are added/updated in different order than order_index
+    await page.evaluate(() => {
+      // Simulate the bug: items in array are not sorted by order_index
+      // This happens when items are added/updated in different sequences
+      const items = (window as any).shoppingList;
+
+      // Create a scenario where array order doesn't match order_index
+      if (items && items.length >= 3) {
+        // Swap first and last items in the array (simulating the bug)
+        const temp = items[0];
+        items[0] = items[2];
+        items[2] = temp;
+
+        console.log('Array after manual manipulation:', items.map((i: any) => ({ id: i.id, order_index: i.order_index, name: i.name })));
+      }
+    });
+
+    // Force re-render by calling the function directly
+    await page.evaluate(() => {
+      (window as any).renderShoppingList();
+    });
+
+    // Wait for DOM to update
+    await page.waitForTimeout(500);
+
+    // Check if renderShoppingList() respects order_index or array order
+    const finalOrderIndices = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        return orderIndex ? parseInt(orderIndex) : 0;
+      });
+    });
+
+    console.log('Final order indices after render:', finalOrderIndices);
+
+    // renderShoppingList() should render items in order_index order, not array order
+    // After re-render, items should maintain their order_index sequence [1, 2, 3]
+    expect(finalOrderIndices).toEqual([1, 2, 3]);
+  });
+
+  test('should handle item reordering correctly with full list updates', async ({ page }) => {
+    // Clear all items first
+    await page.click('#clearBtn');
+    await page.waitForTimeout(1000);
+
+    // Add three items
+    const itemNames = ['First Item', 'Second Item', 'Third Item'];
+    for (const name of itemNames) {
+      await page.fill('#itemName', name);
+      await page.click('.add-btn');
+      await page.waitForTimeout(1000);
+    }
+
+    // Get initial order indices from DOM
+    const initialOrderIndices = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        return orderIndex ? parseInt(orderIndex) : 0;
+      });
+    });
+    console.log('Initial order indices:', initialOrderIndices);
+
+    // Simulate a reorder event from the server with full list data
+    // This simulates what happens when the server sends an SSE event for a reorder
+    await page.evaluate(() => {
+      // Simulate an item reorder event from the server with full list
+      const reorderData = {
+        type: 'item_reordered',
+        item_id: 2, // ID of Second Item
+        old_state: 2, // Current order_index
+        new_state: 1, // New order_index
+        list_id: 1,
+        client_id: 'other-client',
+        timestamp: new Date().toISOString(),
+        items: [
+          { id: 2, name: 'Second Item', quantity: 1, completed: false, order_index: 1 },
+          { id: 1, name: 'First Item', quantity: 1, completed: false, order_index: 2 },
+          { id: 3, name: 'Third Item', quantity: 1, completed: false, order_index: 3 }
+        ]
+      };
+
+      console.log('Simulating reorder event with full list:', reorderData);
+      (window as any).handleSSEEvent(reorderData);
+    });
+
+    // Wait for the reorder to complete
+    await page.waitForTimeout(1000);
+
+    // Check the final order
+    const finalOrderIndices = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        return orderIndex ? parseInt(orderIndex) : 0;
+      });
+    });
+
+    const finalItemNames = await page.locator('.list-item .item-name').evaluateAll((items) => {
+      return items.map(item => item.textContent?.trim() || '');
+    });
+
+    console.log('Final order indices:', finalOrderIndices);
+    console.log('Final item names:', finalItemNames);
+
+    // Verify the reorder worked correctly
+    // Expected: Second Item should be first (order_index 1), First Item should be second (order_index 2)
+    expect(finalItemNames).toEqual(['Second Item', 'First Item', 'Third Item']);
+    expect(finalOrderIndices).toEqual([1, 2, 3]);
+
+    // Verify that the local shoppingList array is updated with the full list
+    const shoppingListArray = await page.evaluate(() => {
+      return (window as any).shoppingList.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        order_index: item.order_index
+      }));
+    });
+
+    console.log('Local shoppingList array after reorder:', shoppingListArray);
+
+    // The local array should match the expected order
+    expect(shoppingListArray).toEqual([
+      { id: 2, name: 'Second Item', order_index: 1 },
+      { id: 1, name: 'First Item', order_index: 2 },
+      { id: 3, name: 'Third Item', order_index: 3 }
+    ]);
+  });
+
+  test('should test real-time synchronization during concurrent reorders order_index', async ({ page }) => {
+    // Clear all items first
+    await page.click('#clearBtn');
+    await page.waitForTimeout(1000);
+
+    // Add multiple items
+    const itemNames = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5'];
+    for (const name of itemNames) {
+      await page.fill('#itemName', name);
+      await page.click('.add-btn');
+      await page.waitForTimeout(500);
+    }
+
+    // Get initial state
+    const initialState = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        const name = item.querySelector('.item-name')?.textContent?.trim() || '';
+        return { name, order_index: orderIndex ? parseInt(orderIndex) : 0 };
+      });
+    });
+    console.log('Initial state:', initialState);
+
+    // Simulate multiple rapid reorder events (simulating concurrent users)
+    // NOTE: The new SSE handler expects `items` array in the event data
+    await page.evaluate(() => {
+      const events = [
+        {
+          type: 'item_reordered',
+          id: 1,
+          order_index: 3,
+          items: [
+            { id: 2, name: 'Item 2', quantity: 1, completed: false, order_index: 1 },
+            { id: 3, name: 'Item 3', quantity: 1, completed: false, order_index: 2 },
+            { id: 1, name: 'Item 1', quantity: 1, completed: false, order_index: 3 },
+            { id: 4, name: 'Item 4', quantity: 1, completed: false, order_index: 4 },
+            { id: 5, name: 'Item 5', quantity: 1, completed: false, order_index: 5 }
+          ],
+          client_id: 'client-1',
+          timestamp: new Date().toISOString()
+        },
+        {
+          type: 'item_reordered',
+          id: 3,
+          order_index: 1,
+          items: [
+            { id: 3, name: 'Item 3', quantity: 1, completed: false, order_index: 1 },
+            { id: 2, name: 'Item 2', quantity: 1, completed: false, order_index: 2 },
+            { id: 1, name: 'Item 1', quantity: 1, completed: false, order_index: 3 },
+            { id: 4, name: 'Item 4', quantity: 1, completed: false, order_index: 4 },
+            { id: 5, name: 'Item 5', quantity: 1, completed: false, order_index: 5 }
+          ],
+          client_id: 'client-2',
+          timestamp: new Date().toISOString()
+        },
+        {
+          type: 'item_reordered',
+          id: 5,
+          order_index: 2,
+          items: [
+            { id: 3, name: 'Item 3', quantity: 1, completed: false, order_index: 1 },
+            { id: 5, name: 'Item 5', quantity: 1, completed: false, order_index: 2 },
+            { id: 2, name: 'Item 2', quantity: 1, completed: false, order_index: 3 },
+            { id: 1, name: 'Item 1', quantity: 1, completed: false, order_index: 4 },
+            { id: 4, name: 'Item 4', quantity: 1, completed: false, order_index: 5 }
+          ],
+          client_id: 'client-3',
+          timestamp: new Date().toISOString()
+        }
+      ];
+
+      console.log('Simulating rapid reorder events:', events);
+
+      // Process events rapidly to simulate concurrent reorders
+      events.forEach((event, index) => {
+        setTimeout(() => {
+          (window as any).handleSSEEvent(event);
+        }, index * 100); // 100ms delay between events
+      });
+    });
+
+    // Wait for all reorders to complete
+    await page.waitForTimeout(2000);
+
+    // Check final state
+    const finalState = await page.locator('.list-item').evaluateAll((items) => {
+      return items.map(item => {
+        const orderIndex = item.getAttribute('data-order-index');
+        const name = item.querySelector('.item-name')?.textContent?.trim() || '';
+        return { name, order_index: orderIndex ? parseInt(orderIndex) : 0 };
+      });
+    });
+
+    console.log('Final state after concurrent reorders:', finalState);
+
+    // After concurrent reorder events, items should have consistent sequential order indices
+    const finalOrderIndices = finalState.map(item => item.order_index);
+    const expectedIndices = [1, 2, 3, 4, 5];
+
+    expect(finalOrderIndices).toEqual(expectedIndices);
+  });
+
   test('should capture screenshots for visual verification', async ({ page, browserName}, testInfo) => {
     // Add sample items to show a populated state
     const sampleItems = [

@@ -12,6 +12,7 @@
   * Once a task is fully verified by adding relevant tests and running `make lint test`, mark it as [x].
   * If a new requirement pops up, add it to the 'To-Do' list immediately."
 - Always add tests using unittest, ensure lint and tests pass before starting and before moving on.
+- If any tests or lint fails, even if unrelated to the current task, abort and go back to planning mode to debug and resolve all issues sequentually.
 - Prefer running commands from the Makefile, if important commands are missing add to 'To-Do'
 
 use

@@ -42,9 +42,7 @@ class TestShoppingListAPI(unittest.TestCase):
         try:
             response = requests.delete(f"{cls.BASE_URL}/items", timeout=TEST_TIMEOUT)
             if response.status_code != 200:
-                logger.warning(
-                    "⚠️  Warning: Could not clear items, status %s", response.status_code
-                )
+                logger.warning("⚠️  Warning: Could not clear items, status %s", response.status_code)
         except Exception as e:
             logger.warning("⚠️  Warning: Could not clear items: %s", e)
 
@@ -54,9 +52,7 @@ class TestShoppingListAPI(unittest.TestCase):
         # Check if we have an item ID and if it still exists
         if cls.test_item_id is not None:
             try:
-                response = requests.get(
-                    f"{cls.BASE_URL}/items/{cls.test_item_id}", timeout=TEST_TIMEOUT
-                )
+                response = requests.get(f"{cls.BASE_URL}/items/{cls.test_item_id}", timeout=TEST_TIMEOUT)
                 if response.status_code == 200:
                     return  # Item still exists
             except (requests.RequestException,):
@@ -64,9 +60,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
         # Create new item
         new_item = {"name": "Test Item", "quantity": 3, "completed": False}
-        response = requests.post(
-            f"{cls.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
-        )
+        response = requests.post(f"{cls.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
         if response.status_code == 201:
             created_item = response.json()
             cls.test_item_id = created_item["id"]
@@ -102,17 +96,18 @@ class TestShoppingListAPI(unittest.TestCase):
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
-        items = response.json()
-        self.assertIsInstance(items, list)
-        self.assertGreaterEqual(len(items), 0)  # Should return a list
+        data = response.json()
+        self.assertIn("items", data)
+        self.assertIn("repaired", data)
+        self.assertIsInstance(data["items"], list)
+        self.assertEqual(data["repaired"], False)
+        self.assertGreaterEqual(len(data["items"]), 0)  # Should return a list
 
     def test_create_item(self):
         """Test creating a new item"""
         new_item = {"name": "Test Item", "quantity": 3, "completed": False}
 
-        response = requests.post(
-            f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
-        )
+        response = requests.post(f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 201)
 
         created_item = response.json()
@@ -127,17 +122,13 @@ class TestShoppingListAPI(unittest.TestCase):
         """Test getting a specific item by ID"""
         # Create a fresh item for this test
         new_item = {"name": "Specific Test Item", "quantity": 4, "completed": False}
-        response = requests.post(
-            f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
-        )
+        response = requests.post(f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 201)
         created_item = response.json()
         item_id = created_item["id"]
 
         # Get the specific item
-        response = requests.get(
-            f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT
-        )
+        response = requests.get(f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
         item = response.json()
@@ -150,9 +141,7 @@ class TestShoppingListAPI(unittest.TestCase):
         """Test toggling an item's completion status"""
         # Create a fresh item for this test
         new_item = {"name": "Toggle Test Item", "quantity": 1, "completed": False}
-        response = requests.post(
-            f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
-        )
+        response = requests.post(f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 201)
         created_item = response.json()
         item_id = created_item["id"]
@@ -203,26 +192,20 @@ class TestShoppingListAPI(unittest.TestCase):
         Test that deleted item returns 404"""
         # Create a fresh item for this test
         new_item = {"name": "Delete Test Item", "quantity": 2, "completed": False}
-        response = requests.post(
-            f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT
-        )
+        response = requests.post(f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 201)
         created_item = response.json()
         item_id = created_item["id"]
 
         # Delete the item
-        response = requests.delete(
-            f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT
-        )
+        response = requests.delete(f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
 
         result = response.json()
         self.assertIn("message", result)
 
         # Verify item is gone
-        response = requests.get(
-            f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT
-        )
+        response = requests.get(f"{self.BASE_URL}/items/{item_id}", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 404)
 
     def test_error_handling_nonexistent_item(self):
@@ -245,9 +228,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
     def test_toggle_nonexistent_item(self):
         """Test toggling non-existent item returns 404"""
-        response = requests.patch(
-            f"{self.BASE_URL}/items/99999/toggle", timeout=TEST_TIMEOUT
-        )
+        response = requests.patch(f"{self.BASE_URL}/items/99999/toggle", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 404)
 
     def test_item_ordering(self):
@@ -264,16 +245,15 @@ class TestShoppingListAPI(unittest.TestCase):
 
         created_items = []
         for item_data in items_data:
-            response = requests.post(
-                f"{self.BASE_URL}/items", json=item_data, timeout=TEST_TIMEOUT
-            )
+            response = requests.post(f"{self.BASE_URL}/items", json=item_data, timeout=TEST_TIMEOUT)
             self.assertEqual(response.status_code, 201)
             created_items.append(response.json())
 
         # Verify items are returned in order
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
-        items = response.json()
+        data = response.json()
+        items = data["items"]
 
         # Should be ordered by order_index (1, 2, 3)
         self.assertEqual(len(items), 3)
@@ -330,7 +310,8 @@ class TestShoppingListAPI(unittest.TestCase):
         # Verify initial order
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
-        current_items = response.json()
+        current_data = response.json()
+        current_items = current_data["items"]
         self.assertEqual(len(current_items), 3)
         self.assertEqual(current_items[0]["name"], "Item 1")
         self.assertEqual(current_items[1]["name"], "Item 2")
@@ -355,7 +336,8 @@ class TestShoppingListAPI(unittest.TestCase):
         # Verify new order: Item 1, New Item, Item 2, Item 3
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
-        updated_items = response.json()
+        updated_data = response.json()
+        updated_items = updated_data["items"]
         self.assertEqual(len(updated_items), 4)
         self.assertEqual(updated_items[0]["name"], "Item 1")
         self.assertEqual(updated_items[0]["order_index"], 1)
@@ -373,7 +355,7 @@ class TestShoppingListAPI(unittest.TestCase):
 
         # Add three items
         items = []
-        for i in range(3):
+        for i in range(4):
             response = requests.post(
                 f"{self.BASE_URL}/items",
                 json={"name": f"Item {i+1}", "quantity": 1, "completed": False},
@@ -400,18 +382,54 @@ class TestShoppingListAPI(unittest.TestCase):
         # Verify the new order
         response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
         self.assertEqual(response.status_code, 200)
-        reordered_items = response.json()
+        data = response.json()
+        self.assertEqual(data["repaired"], False)
+        reordered_items = data["items"]
 
-        self.assertEqual(len(reordered_items), 3)
+        self.assertEqual(len(reordered_items), 4)
         # Second item should now be first
         self.assertEqual(reordered_items[0]["name"], "Item 2")
         self.assertEqual(reordered_items[1]["name"], "Item 1")
         self.assertEqual(reordered_items[2]["name"], "Item 3")
+        self.assertEqual(reordered_items[3]["name"], "Item 4")
 
         # Verify order_index values
         self.assertEqual(reordered_items[0]["order_index"], 1)
         self.assertEqual(reordered_items[1]["order_index"], 2)
         self.assertEqual(reordered_items[2]["order_index"], 3)
+        self.assertEqual(reordered_items[3]["order_index"], 4)
+
+        # Test2
+        # Move third item (index 3, order_index 3) to position 1 (new order_index 1)
+        item_to_move = reordered_items[2]  # Third item
+        new_order = 1
+
+        response = requests.patch(
+            f"{self.BASE_URL}/items/{item_to_move['id']}/reorder/{new_order}",
+            timeout=TEST_TIMEOUT,
+        )
+        logger.debug("Reorder response: %s", response)
+        self.assertEqual(response.status_code, 200)
+
+        # Verify the new order
+        response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["repaired"], False)
+        reordered_items = data["items"]
+
+        self.assertEqual(len(reordered_items), 4)
+        # Second item should now be first
+        self.assertEqual(reordered_items[0]["name"], "Item 3")
+        self.assertEqual(reordered_items[1]["name"], "Item 2")
+        self.assertEqual(reordered_items[2]["name"], "Item 1")
+        self.assertEqual(reordered_items[3]["name"], "Item 4")
+
+        # Verify order_index values
+        self.assertEqual(reordered_items[0]["order_index"], 1)
+        self.assertEqual(reordered_items[1]["order_index"], 2)
+        self.assertEqual(reordered_items[2]["order_index"], 3)
+        self.assertEqual(reordered_items[3]["order_index"], 4)
 
     def test_reorder_invalid_item(self):
         """Test reordering non-existent item returns 404"""
@@ -425,6 +443,57 @@ class TestShoppingListAPI(unittest.TestCase):
         )
         # Just verify it's not a successful response
         self.assertNotEqual(response.status_code, 200)
+
+    def test_repair_duplicate_order_index(self):
+        """Test that duplicate order_index values are detected and repaired"""
+        # Clear all items first
+        requests.delete(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
+
+        # Add three items normally
+        items = []
+        for i in range(3):
+            response = requests.post(
+                f"{self.BASE_URL}/items",
+                json={"name": f"Item {i+1}", "quantity": 1, "completed": False},
+                timeout=TEST_TIMEOUT,
+            )
+            self.assertEqual(response.status_code, 201)
+            items.append(response.json())
+
+        # Abuse PUT /items/{item_id} to set duplicate order_index values
+        # Set all items to have the same order_index (simulating corruption)
+        for item in items:
+            response = requests.put(
+                f"{self.BASE_URL}/items/{item['id']}",
+                json={
+                    "name": item["name"],
+                    "quantity": item["quantity"],
+                    "completed": item["completed"],
+                    "order_index": 1,
+                },
+                timeout=TEST_TIMEOUT,
+            )
+            self.assertEqual(response.status_code, 200)
+
+        # Verify that the next GET request detects and repairs the duplicates
+        response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        # Check that repair was triggered
+        self.assertEqual(data["repaired"], True)
+
+        # Check that items now have unique, sequential order_index values
+        repaired_items = data["items"]
+        self.assertEqual(len(repaired_items), 3)
+        order_indices = [item["order_index"] for item in repaired_items]
+        self.assertEqual(order_indices, [1, 2, 3])
+
+        # Verify that subsequent requests don't trigger repair
+        response = requests.get(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["repaired"], False)
 
 
 if __name__ == "__main__":

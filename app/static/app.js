@@ -356,7 +356,19 @@ async function loadShoppingList() {
     setLoading(true);
 
     try {
-        shoppingList = await apiRequest(API_BASE_URL);
+        const response = await apiRequest(API_BASE_URL);
+
+        // Handle new response format: {items: [...], repaired: boolean}
+        if (response.items) {
+            shoppingList = response.items;
+            if (response.repaired) {
+                showToast('List order was repaired due to duplicate indices', 'warning');
+                console.log('Server repaired duplicate order_index values');
+            }
+        } else {
+            showToast('Frontend-backend missmatch, be sure to refresh', 'error');
+        }
+
         renderShoppingList();
         updateEmptyState();
         console.log('Shopping list loaded successfully');
@@ -788,7 +800,10 @@ function parseImportText(text) {
 function renderShoppingList() {
     elements.shoppingList.innerHTML = '';
 
-    shoppingList.forEach(item => {
+    // Sort items by order_index before rendering to ensure correct order
+    const sortedList = [...shoppingList].sort((a, b) => a.order_index - b.order_index);
+
+    sortedList.forEach(item => {
         const listItem = document.createElement('div');
         listItem.className = `list-item ${item.completed ? 'completed' : ''} ${item.id === selectedItemId ? 'selected' : ''}`;
         listItem.setAttribute('data-item-id', item.id);
@@ -1645,48 +1660,25 @@ function handleItemToggled(data) {
 }
 
 /**
- * Handle item reordered event with state validation
+ * Handle item reordered event with full list replacement
  */
 function handleItemReordered(data) {
-    const itemIndex = shoppingList.findIndex(item => item.id === data.item_id);
-
-    if (itemIndex !== -1) {
-        // Step 1: Validate old state
-        if (shoppingList[itemIndex].order_index !== data.old_state) {
-            console.warn('Item reorder state mismatch, refreshing...');
-            loadShoppingList();
-            return;
-        }
-
-        // Step 2: Apply change
-        const item = shoppingList.splice(itemIndex, 1)[0];
-
-        // Find new position based on order_index
-        let newIndex = shoppingList.findIndex(i => i.order_index >= data.new_state);
-        if (newIndex === -1) {
-            newIndex = shoppingList.length;
-        }
-
-        shoppingList.splice(newIndex, 0, item);
-
-        // Update order indices locally
-        shoppingList.forEach((item, index) => {
-            item.order_index = index + 1;
-        });
-
-        renderShoppingList();
-
-        // Step 3: Validate new state
-        const finalItemIndex = shoppingList.findIndex(item => item.id === data.item_id);
-        if (finalItemIndex !== -1 && shoppingList[finalItemIndex].order_index !== data.new_state) {
-            console.warn('Item reorder new state mismatch, refreshing...');
-            loadShoppingList();
-            return;
-        }
-
-        // Step 4: Show success message
-        showToast('Item reordered from another device', 'info');
+    // Safety check: ensure shoppingList is initialized and page is loaded
+    if (!shoppingList || !elements) {
+        console.warn('shoppingList or elements not initialized, ignoring reorder event');
+        return;
     }
+
+    // Safety check: ensure data.items is valid
+    if (!data || !data.items || !Array.isArray(data.items)) {
+        console.warn('Invalid reorder data, ignoring event');
+        return;
+    }
+
+    // Replace entire local state with server state
+    shoppingList = data.items;
+    renderShoppingList();
+    showToast('Item reordered from another device', 'info');
 }
 
 /**
@@ -1971,9 +1963,24 @@ window.app = {
     handleImport,
     parseImportText,
     showToast,
-    setLoading
+    setLoading,
+    renderShoppingList,
+    handleSSEEvent
 };
 
-// Expose global variables for testing
-window.isConnectionHealthy = isConnectionHealthy;
-window.sseRetryCount = sseRetryCount;
+// Expose global variables for testing using getters to ensure current values
+Object.defineProperty(window, 'shoppingList', {
+    get: () => shoppingList,
+    configurable: true
+});
+
+// For variables that can't use getters (primitives), expose via app object
+Object.defineProperty(window, 'isConnectionHealthy', {
+    get: () => isConnectionHealthy,
+    configurable: true
+});
+
+Object.defineProperty(window, 'sseRetryCount', {
+    get: () => sseRetryCount,
+    configurable: true
+});

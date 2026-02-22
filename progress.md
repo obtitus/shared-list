@@ -1,11 +1,7 @@
 # Project Progress
 
 ## To-Do
-- [x] Reduce the number of toast notifications, leave errors and external events and move the rest to console messages
-- [x] Ensure rows are allowed to grow in height if the text overflows
-- [x] Configure playwright to capture a screenshot of each target platform
-- [x] Consolidate CSS properties into .touch-target base class
-- [x] Fix reorder and toggle functionality to not be optimistic updates, but actually get the server state
+- [ ] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down
 
 ## Done
 - [x] Project initialization and `.clinerules` setup
@@ -41,3 +37,8 @@
 - [x] Move the "Add" button to the same line as the Add item input field, make it dynamic taking up min-width 60 (matching item buttons) and maximum 1/4 of the total width
 - [x] When a user-reconnects, especially on iphone going from lock to unlocked screen, ensure a refresh is done
 - [x] When sending events, always include both the previous and new state, i.e. when toggeling item-checkbox, don't send "toggle" send "false -> true", if the reciever sees a missmatch in its own state, do a refresh first. When adding/removing items, include number of items before and after.
+- [x] Reduce the number of toast notifications, leave errors and external events and move the rest to console messages
+- [x] Ensure rows are allowed to grow in height if the text overflows
+- [x] Configure playwright to capture a screenshot of each target platform
+- [x] Consolidate CSS properties into .touch-target base class
+- [x] Fix reorder and toggle functionality to not be optimistic updates, but actually get the server state

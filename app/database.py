@@ -102,3 +102,35 @@ def reset_database():
     with get_db() as conn:
         conn.execute("DELETE FROM items")
         conn.commit()
+
+
+def db_get_items(list_id: int):
+    """Get the current list details"""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT id, name, quantity, completed, order_index FROM items WHERE list_id = ? ORDER BY order_index, id",
+            (list_id,),
+        )
+        items = [dict(row) for row in cursor.fetchall()]
+
+    return items
+
+
+def assign_unique_order_indices(list_id: int):
+    """Assign unique order_index values to items in the list"""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT id FROM items WHERE list_id = ? ORDER BY order_index",
+            (list_id,),
+        )
+        items = cursor.fetchall()
+
+        for index, item in enumerate(items):
+            conn.execute(
+                "UPDATE items SET order_index = ? WHERE id = ?",
+                (index + 1, item["id"]),
+            )
+        conn.commit()
+
+        # Return the updated list of items
+    return db_get_items(list_id)

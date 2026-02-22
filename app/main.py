@@ -11,7 +11,7 @@ import tomllib
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from database import get_db, init_db, create_sample_data, get_port
+from database import get_db, init_db, create_sample_data, get_port, db_get_items, assign_unique_order_indices
 
 
 def get_app_version() -> str:
@@ -121,6 +121,13 @@ class Item(ItemBase):
     model_config = {"from_attributes": True}
 
 
+class ItemsResponse(BaseModel):
+    """Response model for items endpoint with repair flag"""
+
+    items: List[Item]
+    repaired: bool
+
+
 # Initialize FastAPI app with lifespan
 app = FastAPI(
     title="Shared Shopping List API",
@@ -139,9 +146,7 @@ templates = Jinja2Templates(directory="app/templates")
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend(request: Request):
     """Serve the PWA frontend"""
-    return templates.TemplateResponse(
-        "index.html", {"request": request, "version": get_app_version()}
-    )
+    return templates.TemplateResponse("index.html", {"request": request, "version": get_app_version()})
 
 
 @app.get("/api", response_model=dict)
@@ -160,9 +165,7 @@ async def get_version():
 async def get_lists():
     """Get all shopping lists"""
     with get_db() as conn:
-        cursor = conn.execute(
-            "SELECT id, name, created_at, updated_at FROM lists ORDER BY id"
-        )
+        cursor = conn.execute("SELECT id, name, created_at, updated_at FROM lists ORDER BY id")
         lists = [dict(row) for row in cursor.fetchall()]
         return lists
 
@@ -222,16 +225,28 @@ async def update_list(list_id: int, list_data: ShoppingListCreate, request: Requ
         return dict(updated_list)
 
 
-@app.get("/items", response_model=List[Item])
+def check_unique_order_index(items):
+    """Ensure order_index values are unique within a list"""
+    order_index = [item["order_index"] for item in items]
+    if len(order_index) != len(set(order_index)):
+        return False
+    return True
+
+
+@app.get("/items", response_model=ItemsResponse)
 async def get_items(list_id: int = 1):
     """Get all shopping items for a specific list"""
-    with get_db() as conn:
-        cursor = conn.execute(
-            "SELECT id, name, quantity, completed, order_index FROM items WHERE list_id = ? ORDER BY order_index, id",
-            (list_id,),
-        )
-        items = [dict(row) for row in cursor.fetchall()]
-        return items
+    items = db_get_items(list_id)
+
+    # Sanity check the list
+    repaired = False
+    if not check_unique_order_index(items):
+        print("WARNING: Duplicate order_index values detected. Reassigning unique order indices.")
+        items = assign_unique_order_indices(list_id)
+        repaired = True
+
+    response = {"items": items, "repaired": repaired}
+    return response
 
 
 @app.get("/items/{item_id}", response_model=Item)
@@ -392,9 +407,7 @@ async def toggle_item(item_id: int, request: Request):
 
     with get_db() as conn:
         # Check if item exists
-        cursor = conn.execute(
-            "SELECT id, completed, list_id FROM items WHERE id = ?", (item_id,)
-        )
+        cursor = conn.execute("SELECT id, completed, list_id FROM items WHERE id = ?", (item_id,))
         row = cursor.fetchone()
 
         if row is None:
@@ -406,9 +419,7 @@ async def toggle_item(item_id: int, request: Request):
         list_id = row["list_id"]
 
         # Update the completed status
-        conn.execute(
-            "UPDATE items SET completed = ? WHERE id = ?", (new_status, item_id)
-        )
+        conn.execute("UPDATE items SET completed = ? WHERE id = ?", (new_status, item_id))
         conn.commit()
 
         # Get the complete updated item
@@ -448,9 +459,7 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
 
     with get_db() as conn:
         # Check if item exists and get its list_id
-        cursor = conn.execute(
-            "SELECT id, order_index, list_id FROM items WHERE id = ?", (item_id,)
-        )
+        cursor = conn.execute("SELECT id, order_index, list_id FROM items WHERE id = ?", (item_id,))
         row = cursor.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Item not found")
@@ -495,14 +504,13 @@ async def reorder_item(item_id: int, new_order: int, request: Request):
         )
         items = [dict(row) for row in cursor.fetchall()]
 
-        # Broadcast item reorder event with both old and new states
+        # Broadcast item reorder event with both old and new states and full list
         await broadcaster.broadcast(
             {
                 "type": "item_reordered",
-                "item_id": item_id,
-                "old_state": current_order,
-                "new_state": new_order,
-                "list_id": list_id,
+                "id": item_id,
+                "order_index": new_order,
+                "items": items,
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
             }
