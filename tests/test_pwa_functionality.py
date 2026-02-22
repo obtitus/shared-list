@@ -106,16 +106,12 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that the item was added
         new_count = len(self.page.locator(".list-item").all())
-        self.assertGreaterEqual(
-            new_count, initial_count + 1, "Item was not added to the list"
-        )
+        self.assertGreaterEqual(new_count, initial_count + 1, "Item was not added to the list")
 
         # Check that the item has the correct name
         item_name = self.page.locator(".list-item:last-child .item-name").inner_text()
 
-        self.assertEqual(
-            item_name, "Test Item", f"Expected 'Test Item', got '{item_name}'"
-        )
+        self.assertEqual(item_name, "Test Item", f"Expected 'Test Item', got '{item_name}'")
 
         # Check that the form was reset
         self.assertEqual(self.page.locator("#itemName").input_value(), "")
@@ -148,9 +144,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that the item is now completed
         item_class_after_toggle = item.get_attribute("class") or ""
-        checkbox_class_after_toggle = (
-            item.locator(".item-checkbox").get_attribute("class") or ""
-        )
+        checkbox_class_after_toggle = item.locator(".item-checkbox").get_attribute("class") or ""
         self.assertIn("completed", item_class_after_toggle)
         self.assertIn("checked", checkbox_class_after_toggle)
 
@@ -160,9 +154,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that the item is not completed
         item_class_after_toggle_back = item.get_attribute("class") or ""
-        checkbox_class_after_toggle_back = (
-            item.locator(".item-checkbox").get_attribute("class") or ""
-        )
+        checkbox_class_after_toggle_back = item.locator(".item-checkbox").get_attribute("class") or ""
         self.assertNotIn("completed", item_class_after_toggle_back)
         self.assertNotIn("checked", checkbox_class_after_toggle_back)
 
@@ -200,9 +192,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Get initial count
         initial_count = len(self.page.locator(".list-item").all())
-        self.assertGreaterEqual(
-            initial_count, 3, "Not enough items were added for the test"
-        )
+        self.assertGreaterEqual(initial_count, 3, "Not enough items were added for the test")
 
         # Clear all items
         self.page.click("#clearBtn")
@@ -265,12 +255,8 @@ class TestShoppingListPWA(unittest.TestCase):
         self.assertEqual(response.status, 200, "Manifest should be accessible")
 
         manifest = response.json()
-        self.assertEqual(
-            manifest["name"], "Shared Shopping List", "Manifest name should match"
-        )
-        self.assertEqual(
-            manifest["display"], "standalone", "Display mode should be standalone"
-        )
+        self.assertEqual(manifest["name"], "Shared Shopping List", "Manifest name should match")
+        self.assertEqual(manifest["display"], "standalone", "Display mode should be standalone")
 
         # Check that service worker is registered
         service_worker_registered = self.page.evaluate(
@@ -281,9 +267,7 @@ class TestShoppingListPWA(unittest.TestCase):
         """
         )
 
-        self.assertTrue(
-            service_worker_registered, "Service worker should be registered"
-        )
+        self.assertTrue(service_worker_registered, "Service worker should be registered")
 
     def test_keyboard_shortcuts(self):
         """Test keyboard shortcuts functionality"""
@@ -292,9 +276,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that the input is focused
         focused_element = self.page.evaluate("() => document.activeElement.id")
-        self.assertEqual(
-            focused_element, "itemName", "Item name input should be focused"
-        )
+        self.assertEqual(focused_element, "itemName", "Item name input should be focused")
 
         # Add an item using Enter
         self.page.fill("#itemName", "Keyboard Test Item")
@@ -311,6 +293,81 @@ class TestShoppingListPWA(unittest.TestCase):
             "Keyboard Test Item",
             f"Expected 'Keyboard Test Item', got '{item_name}'",
         )
+
+    def test_keyboard_reorder_item(self):
+        """Test reordering items with w/s keyboard shortcuts"""
+        # Clear all items first
+        self.page.click("#clearBtn")
+        self.page.wait_for_timeout(1000)
+
+        # Add three items first
+        for i in range(3):
+            self.page.fill("#itemName", f"Item {i+1}")
+            self.page.click(".add-btn")
+            self.page.wait_for_timeout(1000)
+
+        # Verify initial order
+        items = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(items, ["Item 1", "Item 2", "Item 3"])
+
+        # Select the second item ("Item 2") by clicking on it
+        second_item = self.page.locator('.list-item:has-text("Item 2")')
+        second_item.click()
+
+        # Check that it's selected (has selected class)
+        item_class = second_item.get_attribute("class") or ""
+        self.assertIn("selected", item_class)
+
+        # Press 'w' to move the selected item up
+        self.page.keyboard.press("w")
+        self.page.wait_for_timeout(1000)
+
+        # Verify new order: Item 2, Item 1, Item 3
+        items_after_w = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(
+            items_after_w,
+            ["Item 2", "Item 1", "Item 3"],
+            f"Expected Item 2 to move up, got {items_after_w}",
+        )
+
+        # Press 's' to move the selected item down (Item 2 is still selected)
+        self.page.keyboard.press("s")
+        self.page.wait_for_timeout(1000)
+
+        # Verify new order: Item 1, Item 2, Item 3 (back to original)
+        items_after_s = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(
+            items_after_s,
+            ["Item 1", "Item 2", "Item 3"],
+            f"Expected Item 2 to move down, got {items_after_s}",
+        )
+
+        # Press 's' again to move down
+        self.page.keyboard.press("s")
+        self.page.wait_for_timeout(1000)
+
+        # Verify new order: Item 1, Item 3, Item 2
+        items_after_s2 = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(
+            items_after_s2,
+            ["Item 1", "Item 3", "Item 2"],
+            f"Expected Item 2 to move down again, got {items_after_s2}",
+        )
+
+        # Test that typing in input doesn't trigger reorder
+        self.page.fill("#itemName", "w and s should not trigger reorder")
+        self.page.wait_for_timeout(500)
+
+        # Verify order hasn't changed (w/s keys typed in input shouldn't trigger reorder)
+        items_after_input = self.page.locator(".list-item .item-name").all_text_contents()
+        self.assertEqual(
+            items_after_input,
+            ["Item 1", "Item 3", "Item 2"],
+            f"Order should not change while typing, got {items_after_input}",
+        )
+
+        # Assert no errors occurred
+        assert_no_errors(self.browser_errors, "test_keyboard_reorder_item")
 
     def test_empty_state(self):
         """Test empty state display"""
@@ -356,9 +413,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that no success toast appears (success notifications moved to console)
         self.page.wait_for_timeout(2000)
-        success_toast = self.page.locator(
-            '.toast.success:has-text("Item added successfully")'
-        )
+        success_toast = self.page.locator('.toast.success:has-text("Item added successfully")')
         self.assertFalse(
             success_toast.is_visible(),
             "Success toast should not appear (moved to console)",
@@ -438,9 +493,7 @@ class TestShoppingListPWA(unittest.TestCase):
         if self.page.locator(".list-item").count() > 0:
             item = self.page.locator(".list-item").first
             item_height = item.evaluate("el => el.offsetHeight")
-            self.assertGreater(
-                item_height, 40, "Items should be large enough for touch interaction"
-            )
+            self.assertGreater(item_height, 40, "Items should be large enough for touch interaction")
 
         # Test form is mobile-friendly
         form = self.page.locator("#addItemForm")
@@ -451,9 +504,7 @@ class TestShoppingListPWA(unittest.TestCase):
 
         name_height = item_name.evaluate("el => el.offsetHeight")
 
-        self.assertGreaterEqual(
-            name_height, 40, "Name input should be large enough for mobile"
-        )
+        self.assertGreaterEqual(name_height, 40, "Name input should be large enough for mobile")
 
     def test_add_to_home_screen_prompt(self):
         """Test Add to Home Screen functionality"""
@@ -471,25 +522,17 @@ class TestShoppingListPWA(unittest.TestCase):
         )
 
         # The test passes if the event listener was successfully added
-        self.assertIsNot(
-            prompt_shown, False, "beforeinstallprompt event should be supported"
-        )
+        self.assertIsNot(prompt_shown, False, "beforeinstallprompt event should be supported")
 
     def test_pwa_theme_colors(self):
         """Test PWA theme colors"""
         # Check meta theme-color tag
-        theme_color = self.page.locator('meta[name="theme-color"]').get_attribute(
-            "content"
-        )
+        theme_color = self.page.locator('meta[name="theme-color"]').get_attribute("content")
         self.assertIsNotNone(theme_color, "Theme color meta tag should exist")
-        self.assertEqual(
-            theme_color, "#ffffff", f"Expected theme color #ffffff, got {theme_color}"
-        )
+        self.assertEqual(theme_color, "#ffffff", f"Expected theme color #ffffff, got {theme_color}")
 
         # Check that the page has light theme
-        body_bg = self.page.locator("body").evaluate(
-            "el => getComputedStyle(el).backgroundColor"
-        )
+        body_bg = self.page.locator("body").evaluate("el => getComputedStyle(el).backgroundColor")
         self.assertIsNotNone(body_bg, "Body background color should exist")
         body_bg_str = body_bg or ""
         self.assertTrue(
@@ -500,13 +543,9 @@ class TestShoppingListPWA(unittest.TestCase):
     def test_pwa_orientation(self):
         """Test PWA orientation lock"""
         # Check meta viewport tag
-        viewport = (
-            self.page.locator('meta[name="viewport"]').get_attribute("content") or ""
-        )
+        viewport = self.page.locator('meta[name="viewport"]').get_attribute("content") or ""
         self.assertIsNotNone(viewport, "Viewport meta tag should exist")
-        self.assertIn(
-            "viewport-fit=cover", viewport, "Viewport should support cover fit"
-        )
+        self.assertIn("viewport-fit=cover", viewport, "Viewport should support cover fit")
 
         # Test orientation change (if supported)
         try:
@@ -516,9 +555,7 @@ class TestShoppingListPWA(unittest.TestCase):
             orientation = self.page.evaluate("screen.orientation.type")
             self.assertIsNotNone(orientation, "Orientation should exist")
             orientation_str = orientation or ""
-            self.assertIn(
-                "portrait", orientation_str, "Orientation should be locked to portrait"
-            )
+            self.assertIn("portrait", orientation_str, "Orientation should be locked to portrait")
         except Exception:
             # Orientation lock might not be supported in all environments
             pass
@@ -580,9 +617,7 @@ class TestShoppingListPWA(unittest.TestCase):
                         }
                     )
 
-                self.assertEqual(
-                    normalized_result, expected, f"Failed to parse: {repr(input_text)}"
-                )
+                self.assertEqual(normalized_result, expected, f"Failed to parse: {repr(input_text)}")
 
     def test_import_export_ui_functionality(self):
         """Test the import/export UI functionality"""
@@ -605,9 +640,7 @@ class TestShoppingListPWA(unittest.TestCase):
             # Mark as completed if needed
             if item["completed"]:
                 # Find the item and toggle it
-                item_locator = self.page.locator(
-                    f'.list-item:has-text("{item["name"]}") .item-checkbox'
-                )
+                item_locator = self.page.locator(f'.list-item:has-text("{item["name"]}") .item-checkbox')
                 item_locator.click()
                 self.page.wait_for_timeout(1000)
 
@@ -626,9 +659,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.wait_for_timeout(1000)
 
         # Verify console contains the delimited export
-        export_start_found = any(
-            "=== SHOPPING LIST EXPORT ===" in msg for msg in console_messages
-        )
+        export_start_found = any("=== SHOPPING LIST EXPORT ===" in msg for msg in console_messages)
         export_end_found = any("=== END EXPORT ===" in msg for msg in console_messages)
 
         # Check that we have the export content (should be the middle message)
@@ -709,9 +740,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.wait_for_timeout(3000)
 
         # Simulate page becoming hidden (lock screen)
-        self.page.evaluate(
-            "() => document.dispatchEvent(new Event('visibilitychange'))"
-        )
+        self.page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
         self.page.evaluate(
             "() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })"
         )
@@ -723,9 +752,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.evaluate(
             "() => Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })"
         )
-        self.page.evaluate(
-            "() => document.dispatchEvent(new Event('visibilitychange'))"
-        )
+        self.page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
 
         # Wait for reconnection to happen
         self.page.wait_for_timeout(2000)
@@ -794,9 +821,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.wait_for_timeout(3000)
 
         # Simulate pageshow event (when page is shown from cache)
-        self.page.evaluate(
-            "() => window.dispatchEvent(new Event('pageshow', { persisted: true }))"
-        )
+        self.page.evaluate("() => window.dispatchEvent(new Event('pageshow', { persisted: true }))")
 
         # Wait for connection check to happen
         self.page.wait_for_timeout(2000)
@@ -834,9 +859,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.assertIn("connected", dot_class_after_online)
 
         # Assert no errors occurred
-        assert_no_errors(
-            self.browser_errors, "test_ios_network_state_change_reconnection"
-        )
+        assert_no_errors(self.browser_errors, "test_ios_network_state_change_reconnection")
 
     def test_ios_forced_reconnection_functionality(self):
         """Test iOS forced reconnection functionality"""
@@ -849,20 +872,14 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Check that reconnection happened
         connection_healthy = self.page.evaluate("() => window.isConnectionHealthy")
-        self.assertTrue(
-            connection_healthy, "Connection should be healthy after forced reconnection"
-        )
+        self.assertTrue(connection_healthy, "Connection should be healthy after forced reconnection")
 
         # Check that retry count was reset
         retry_count = self.page.evaluate("() => window.sseRetryCount")
-        self.assertEqual(
-            retry_count, 0, "Retry count should be reset after forced reconnection"
-        )
+        self.assertEqual(retry_count, 0, "Retry count should be reset after forced reconnection")
 
         # Assert no errors occurred
-        assert_no_errors(
-            self.browser_errors, "test_ios_forced_reconnection_functionality"
-        )
+        assert_no_errors(self.browser_errors, "test_ios_forced_reconnection_functionality")
 
     def test_ios_lock_unlock_scenario(self):
         """Test complete iOS lock/unlock screen scenario"""
@@ -878,9 +895,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.evaluate(
             "() => Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })"
         )
-        self.page.evaluate(
-            "() => document.dispatchEvent(new Event('visibilitychange'))"
-        )
+        self.page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
 
         # Wait a moment to simulate being locked
         self.page.wait_for_timeout(1000)
@@ -889,9 +904,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.evaluate(
             "() => Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })"
         )
-        self.page.evaluate(
-            "() => document.dispatchEvent(new Event('visibilitychange'))"
-        )
+        self.page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
 
         # Wait for reconnection and data refresh
         self.page.wait_for_timeout(3000)
@@ -902,9 +915,7 @@ class TestShoppingListPWA(unittest.TestCase):
         self.assertIn("connected", dot_class)
 
         # Check that data is still there (no data loss)
-        item_exists = self.page.locator(
-            '.list-item:has-text("Test Item Before Lock")'
-        ).is_visible()
+        item_exists = self.page.locator('.list-item:has-text("Test Item Before Lock")').is_visible()
         self.assertTrue(item_exists, "Data should persist through lock/unlock cycle")
 
         # Add another item to verify functionality works after reconnection
@@ -913,12 +924,8 @@ class TestShoppingListPWA(unittest.TestCase):
         self.page.wait_for_timeout(1000)
 
         # Verify new item was added successfully
-        new_item_exists = self.page.locator(
-            '.list-item:has-text("Test Item After Unlock")'
-        ).is_visible()
-        self.assertTrue(
-            new_item_exists, "New items should be addable after reconnection"
-        )
+        new_item_exists = self.page.locator('.list-item:has-text("Test Item After Unlock")').is_visible()
+        self.assertTrue(new_item_exists, "New items should be addable after reconnection")
 
         # Assert no errors occurred
         assert_no_errors(self.browser_errors, "test_ios_lock_unlock_scenario")

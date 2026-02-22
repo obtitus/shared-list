@@ -1,7 +1,7 @@
 # Project Progress
 
 ## To-Do
-- [ ] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down
+- [ ] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down (In Progress)
 
 ## Done
 - [x] Project initialization and `.clinerules` setup

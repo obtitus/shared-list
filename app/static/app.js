@@ -945,6 +945,10 @@ function validateForm() {
  * Handle Keyboard Shortcuts
  */
 function handleKeyboardShortcuts(e) {
+    // Ignore shortcuts if user is typing in an input or textarea
+    const activeElement = document.activeElement;
+    const isTyping = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
+
     // Ctrl/Cmd + R: Refresh
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
@@ -964,6 +968,76 @@ function handleKeyboardShortcuts(e) {
         renderShoppingList();
         document.activeElement.blur();
     }
+
+    // W key: Move selected item up (only if not typing and item is selected)
+    if (e.key.toLowerCase() === 'w' && !isTyping && selectedItemId !== null) {
+        e.preventDefault();
+        moveSelectedItemUp();
+    }
+
+    // S key: Move selected item down (only if not typing and item is selected)
+    if (e.key.toLowerCase() === 's' && !isTyping && selectedItemId !== null) {
+        e.preventDefault();
+        moveSelectedItemDown();
+    }
+}
+
+/**
+ * Move selected item up one position
+ */
+async function moveSelectedItemUp() {
+    if (!selectedItemId || !isOnline) {
+        if (!isOnline) {
+            showToast('Cannot reorder items while offline', 'error');
+        }
+        return;
+    }
+
+    // Sort items by order_index to find current position
+    const sortedList = [...shoppingList].sort((a, b) => a.order_index - b.order_index);
+    const currentIndex = sortedList.findIndex(item => item.id === selectedItemId);
+
+    // Can't move up if already at the top
+    if (currentIndex <= 0) {
+        console.log('Item is already at the top');
+        return;
+    }
+
+    // Get the new position (1-based) - move up means lower order_index
+    const targetItem = sortedList[currentIndex - 1];
+    const newPosition = targetItem.order_index;
+
+    console.log(`Moving item ${selectedItemId} up to position ${newPosition}`);
+    await reorderItem(selectedItemId, newPosition);
+}
+
+/**
+ * Move selected item down one position
+ */
+async function moveSelectedItemDown() {
+    if (!selectedItemId || !isOnline) {
+        if (!isOnline) {
+            showToast('Cannot reorder items while offline', 'error');
+        }
+        return;
+    }
+
+    // Sort items by order_index to find current position
+    const sortedList = [...shoppingList].sort((a, b) => a.order_index - b.order_index);
+    const currentIndex = sortedList.findIndex(item => item.id === selectedItemId);
+
+    // Can't move down if already at the bottom
+    if (currentIndex >= sortedList.length - 1) {
+        console.log('Item is already at the bottom');
+        return;
+    }
+
+    // Get the new position (1-based) - move down means higher order_index
+    const targetItem = sortedList[currentIndex + 1];
+    const newPosition = targetItem.order_index;
+
+    console.log(`Moving item ${selectedItemId} down to position ${newPosition}`);
+    await reorderItem(selectedItemId, newPosition);
 }
 
 /**
