@@ -1,6 +1,7 @@
 # Project Progress
 
 ## To-Do
+- [ ] Migrate unittest to pytest. Ensure: Parallel support with servers running on unique ports. Ensure: simple ability to run a single test and all tests, update relevant documentation (including .clinerules/README.md) and Makefiles.
 
 ## Done
 - [x] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down
@@ -42,3 +43,4 @@
 - [x] Configure playwright to capture a screenshot of each target platform
 - [x] Consolidate CSS properties into .touch-target base class
 - [x] Fix reorder and toggle functionality to not be optimistic updates, but actually get the server state
+- [x] Add export text-field as a fallback if clipboard fails.

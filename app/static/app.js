@@ -44,11 +44,74 @@ function getElements() {
             importCancel: document.getElementById('importCancel'),
             importConfirm: document.getElementById('importConfirm'),
             importModalClose: document.getElementById('importModalClose'),
+            exportModal: document.getElementById('exportModal'),
+            exportText: document.getElementById('exportText'),
+            exportModalClose: document.getElementById('exportModalClose'),
+            exportClose: document.getElementById('exportClose'),
             toastContainer: document.getElementById('toastContainer'),
             loadingOverlay: document.getElementById('loadingOverlay')
         };
     }
     return elements;
+}
+
+// Modal Class for shared functionality
+class Modal {
+    constructor(options) {
+        this.element = options.element;
+        this.confirmHandler = options.confirmHandler;
+        this.cancelHandler = options.cancelHandler;
+        this.title = options.title;
+        this.isOpen = false;
+        this.init();
+    }
+
+    init() {
+        // Close modal when clicking outside
+        this.element.addEventListener('click', (e) => {
+            if (e.target === this.element) {
+                this.close();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (this.isOpen && e.key === 'Escape') {
+                this.close();
+            }
+        });
+    }
+
+    open() {
+        this.element.style.display = 'flex';
+        this.element.classList.remove('hidden');
+        this.isOpen = true;
+        // Focus on first interactive element if available
+        const firstInput = this.element.querySelector('input, textarea, button');
+        if (firstInput) {
+            setTimeout(() => firstInput.focus(), 100);
+        }
+    }
+
+    close() {
+        this.element.style.display = 'none';
+        this.element.classList.add('hidden');
+        this.isOpen = false;
+    }
+
+    confirm() {
+        if (this.confirmHandler) {
+            this.confirmHandler();
+        }
+        this.close();
+    }
+
+    cancel() {
+        if (this.cancelHandler) {
+            this.cancelHandler();
+        }
+        this.close();
+    }
 }
 
 // Initialize Application
@@ -61,6 +124,35 @@ document.addEventListener('DOMContentLoaded', () => {
     updateConnectionStatus();
     setupSSE();
     setupHourlyRefresh();
+
+    // Initialize modals with safety checks
+    if (elements.importModal) {
+        window.importModal = new Modal({
+            element: elements.importModal,
+            confirmHandler: handleImportConfirm,
+            cancelHandler: closeImportModal,
+            title: 'Import Shopping List'
+        });
+    }
+
+    if (elements.exportModal) {
+        window.exportModal = new Modal({
+            element: elements.exportModal,
+            confirmHandler: null,
+            cancelHandler: closeExportModal,
+            title: 'Export Shopping List'
+        });
+    }
+
+    // Ensure both modals start in hidden state
+    if (elements.importModal) {
+        elements.importModal.style.display = 'none';
+        elements.importModal.classList.add('hidden');
+    }
+    if (elements.exportModal) {
+        elements.exportModal.style.display = 'none';
+        elements.exportModal.classList.add('hidden');
+    }
 });
 
 /**
@@ -143,22 +235,21 @@ function initializeEventListeners() {
 
     // Import modal event listeners
     if (elements.importModalClose) {
-        elements.importModalClose.addEventListener('click', closeImportModal);
+        elements.importModalClose.addEventListener('click', () => importModal.cancel());
     }
     if (elements.importCancel) {
-        elements.importCancel.addEventListener('click', closeImportModal);
+        elements.importCancel.addEventListener('click', () => importModal.cancel());
     }
     if (elements.importConfirm) {
-        elements.importConfirm.addEventListener('click', handleImportConfirm);
+        elements.importConfirm.addEventListener('click', () => importModal.confirm());
     }
 
-    // Close modal when clicking outside
-    if (elements.importModal) {
-        elements.importModal.addEventListener('click', (e) => {
-            if (e.target === elements.importModal) {
-                closeImportModal();
-            }
-        });
+    // Export modal event listeners
+    if (elements.exportModalClose) {
+        elements.exportModalClose.addEventListener('click', () => exportModal.cancel());
+    }
+    if (elements.exportClose) {
+        elements.exportClose.addEventListener('click', () => exportModal.cancel());
     }
 
     // Keyboard shortcuts
@@ -206,8 +297,6 @@ function initializeEventListeners() {
         }
     }, { passive: true });
 }
-
-
 
 /**
  * API Request Wrapper
@@ -612,14 +701,18 @@ async function handleExport() {
     console.log('=== SHOPPING LIST EXPORT ===');
     console.log(exportText);
     console.log('=== END EXPORT ===');
-    // Fallback to clipboard API
+    // Fallback to modal if clipboard fails
     try {
         await navigator.clipboard.writeText(exportText);
         showToast('List copied to clipboard', 'success');
     } catch (error) {
         console.error('Clipboard API failed:', error);
 
-        console.log('List logged to console - copy manually');
+        // Show export modal with text
+        elements.exportText.value = exportText;
+        exportModal.open();
+        elements.exportText.select();
+        showToast('List copied to modal', 'success');
     }
 }
 
@@ -631,7 +724,7 @@ function handleImport() {
     elements.importText.value = '';
 
     // Show modal
-    elements.importModal.style.display = 'flex';
+    importModal.open();
 
     // Focus on textarea
     setTimeout(() => {
@@ -643,7 +736,14 @@ function handleImport() {
  * Close Import Modal
  */
 function closeImportModal() {
-    elements.importModal.style.display = 'none';
+    importModal.close();
+}
+
+/**
+ * Close Export Modal
+ */
+function closeExportModal() {
+    exportModal.close();
 }
 
 /**
@@ -652,7 +752,7 @@ function closeImportModal() {
 async function handleImportConfirm() {
     if (!isOnline) {
         showToast('Cannot import items while offline', 'error');
-        closeImportModal();
+        importModal.close();
         return;
     }
 
@@ -672,7 +772,7 @@ async function handleImportConfirm() {
     }
 
     // Close modal first
-    closeImportModal();
+    importModal.close();
 
     // Show loading
     setLoading(true);
@@ -2058,3 +2158,10 @@ Object.defineProperty(window, 'sseRetryCount', {
     get: () => sseRetryCount,
     configurable: true
 });
+
+// Close export modal
+function closeExportModal() {
+    if (elements.exportModal) {
+        elements.exportModal.style.display = 'none';
+    }
+}

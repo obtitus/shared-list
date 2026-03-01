@@ -646,8 +646,6 @@ class TestShoppingListPWA(unittest.TestCase):
 
         # Test export functionality (in headless mode, clipboard permission is denied,
         # so it falls back to console.log which we can capture)
-        self.page.click("#exportBtn")
-        self.page.wait_for_timeout(1000)
 
         # Export always logs to console with delimiters for testing
         # Check that the console contains the expected export format
@@ -676,6 +674,9 @@ class TestShoppingListPWA(unittest.TestCase):
             export_start_found and export_end_found and export_content_found,
             f"Export should log to console with delimiters. Console messages: {console_messages}",
         )
+        # Close the export modal
+        self.page.click("#exportClose", force=True)
+        self.page.wait_for_timeout(500)
 
         # Test import modal opens
         self.page.click("#importBtn")

@@ -109,7 +109,7 @@
                     id="importText"
                     class="import-textarea"
                     placeholder="Milk x 2&#10;Bread&#10;Eggs x 12&#10;- Apples&#10;* Bananas"
-                    rows="8"
+                    rows="10"
                 ></textarea>
             </div>
             <div class="modal-footer">
@@ -123,6 +123,30 @@
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
         <div class="loading-spinner"></div>
         <p class="loading-text">Loading...</p>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📤 Export Shopping List</h3>
+                <button class="modal-close" id="exportModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Copying to clipboard failed, you can manually copy the text below.
+                </p>
+                <textarea
+                    id="exportText"
+                    class="export-textarea"
+                    readonly
+                    rows="10"
+                ></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-close" id="exportClose">Close</button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/app.js?v={{ version }}"></script>
