@@ -1,9 +1,9 @@
 # Project Progress
 
 ## To-Do
-- [ ] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down (In Progress)
 
 ## Done
+- [x] Allow item re-order by keystroke, e.g. w for moving currently selected item up one step and s for down
 - [x] Project initialization and `.clinerules` setup
 - [x] Create FastAPI backend with SQLite integration, ensure it runs outside docker
 - [x] Setup Docker Compose for local development (Port 8000)

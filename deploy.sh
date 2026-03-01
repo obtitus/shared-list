@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Enhanced Deployment script for shared-list PWA
 # Deploys to production server with automated pre-deployment steps
 # Usage: ./deploy.sh [NEW_VERSION]
 # If NEW_VERSION is provided, bumps to specified version
-# If no version provided, increments minor version (e.g., 1.1.2 -> 1.2.0)
+# If no version provided, increments patch version (e.g., 1.1.2 -> 1.1.3)
 
 set -e
 
