@@ -1,14 +1,6 @@
 # Shared list
 Vibe coded shared grocery list, no users or authentication just a shared list anyone with a link can edit.
 
-To test locally, run either (assume [uv](https://docs.astral.sh/uv/) is installed)
-```
-make run
-```
-or (assumes [docker](https://www.docker.com/) is setup)
-```
-make docker-run
-```
 ## Screenshots
 ![screenshot chrome](doc/pwa-chromium-small.png)
 
@@ -27,8 +19,52 @@ make docker-run
 * Add/edit/toggle/re-arrange individual items optimized for both mobile and desktop
 * Testing: unittesting for docker and backend api and playwright for frontend with desktop and iOS targets.
 
-## Deploy
-To deploy, first fork this repo, then copy `.env.example` to `.env` and fill out the required values. Then run
+## Development
+
+Git clone (or [download](https://github.com/obtitus/shared-list/archive/refs/heads/main.zip) this repo)
+```
+git clone https://github.com/obtitus/shared-list.git
+cd shared-list
+```
+
+To test locally, run either (assume [uv](https://docs.astral.sh/uv/) is installed)
+```
+make run
+```
+or (assumes [docker](https://www.docker.com/) is setup)
+```
+make docker-run
+```
+
+## Deploy my version
+
+Either clone this repo and run with `uv`, see below, or use the pre-built docker image by
+creating a `docker-compose.yml` file:
+```yml
+services:
+  shared-list:
+    image: ghcr.io/obtitus/shared-list:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/code/app/data
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - PYTHONPATH=/code
+    restart: unless-stopped
+```
+
+Then run:
+```bash
+docker compose up -d
+```
+Access the app at `http://localhost:8000`, your database will be stored in ./data/data_8000.db.
+
+## Deploy your own version
+
+To deploy your own fork, first fork this repo,
+then copy `.env.example` to `.env` and fill out the required values. Then run
 ```
 ./deploy.sh [NEW_VERSION]
 ```
