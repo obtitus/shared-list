@@ -11,7 +11,7 @@ WORKDIR /code
 COPY pyproject.toml uv.lock README.md .python-version ./
 
 # Install Python dependencies in the project directory
-RUN uv sync --no-dev
+RUN uv sync --no-dev --frozen
 
 # Copy application code
 COPY app/ /code/app/

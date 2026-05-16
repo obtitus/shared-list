@@ -134,7 +134,10 @@ else
     print_success "Version bump completed: $NEW_VERSION"
 fi
 
-# 5. Server deployment (tag-based)
+# 6. Verify the public release
+./verify_release.sh "$NEW_VERSION"
+
+# 7. Server deployment (tag-based)
 print_step "Deploying to production server ($DEPLOY_HOST)..."
 
 ssh "$DEPLOY_HOST" << EOF
