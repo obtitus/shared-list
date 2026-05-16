@@ -87,6 +87,11 @@ async def lifespan(app: FastAPI):
     await broadcaster.shutdown()
 
 
+# Security limits from environment
+MAX_ITEM_NAME_LENGTH = int(os.getenv("MAX_ITEM_NAME_LENGTH", 100))
+MAX_ITEMS_PER_LIST = int(os.getenv("MAX_ITEMS_PER_LIST", 200))
+
+
 # Pydantic models
 class ShoppingListBase(BaseModel):
     name: str
@@ -270,9 +275,24 @@ async def create_item(item: ItemCreate, request: Request, list_id: int = 1):
     """Create a new shopping item"""
     client_id = request.headers.get("X-Client-ID")
 
+    # Security Validation: Name length
+    if len(item.name) > MAX_ITEM_NAME_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item name too long (max {MAX_ITEM_NAME_LENGTH} characters)",
+        )
+
     with get_db() as conn:
+        # Security Validation: Item count
+        current_count = get_item_count(conn, list_id)
+        if current_count >= MAX_ITEMS_PER_LIST:
+            raise HTTPException(
+                status_code=400,
+                detail=f"List full: maximum {MAX_ITEMS_PER_LIST} items reached",
+            )
+
         # Get item count before creation
-        old_count = get_item_count(conn, list_id)
+        old_count = current_count
 
         if item.order_index > 0:
             # Insert at specific position - shift higher order_indices up
@@ -326,6 +346,13 @@ async def create_item(item: ItemCreate, request: Request, list_id: int = 1):
 async def update_item(item_id: int, item: ItemCreate, request: Request):
     """Update an existing shopping item"""
     client_id = request.headers.get("X-Client-ID")
+
+    # Security Validation: Name length
+    if len(item.name) > MAX_ITEM_NAME_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Item name too long (max {MAX_ITEM_NAME_LENGTH} characters)",
+        )
 
     with get_db() as conn:
         # Check if item exists

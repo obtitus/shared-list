@@ -59,6 +59,11 @@ class ServerManager:
             # Start server in background with custom port
             env = os.environ.copy()
             env["PORT"] = str(self.port)
+            # Hard-code security limits for predictable testing
+            env["MAX_ITEM_NAME_LENGTH"] = "100"
+            env["MAX_ITEMS_PER_LIST"] = "200"
+            env["MAX_DB_PAGES"] = "100"
+
             self.server_process = subprocess.Popen(
                 ["uv", "run", "python", "app/main.py"], env=env
             )

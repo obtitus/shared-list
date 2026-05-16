@@ -26,26 +26,34 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
 
 def init_db():
     """Initialize the database with required tables"""
+    # Get limits from environment
+    max_db_pages = int(os.getenv("MAX_DB_PAGES", 100))
+    max_name_length = int(os.getenv("MAX_ITEM_NAME_LENGTH", 100))
+
     with get_db() as conn:
+        # Set performance and security PRAGMAs
+        conn.execute(f"PRAGMA page_size = 4096")
+        conn.execute(f"PRAGMA max_page_count = {max_db_pages}")
+
         # Create lists table
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS lists (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT 'Shopping List',
+                name TEXT NOT NULL DEFAULT 'Shopping List' CHECK(length(name) <= {max_name_length}),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """
         )
 
-        # Create items table with list_id foreign key
+        # Create items table with list_id foreign key and constraints
         conn.execute(
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 list_id INTEGER NOT NULL DEFAULT 1,
-                name TEXT NOT NULL,
+                name TEXT NOT NULL CHECK(length(name) <= {max_name_length}),
                 quantity INTEGER DEFAULT 1,
                 completed BOOLEAN DEFAULT 0,
                 order_index INTEGER DEFAULT 0,
@@ -53,6 +61,7 @@ def init_db():
             )
         """
         )
+
         conn.commit()
 
 

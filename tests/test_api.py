@@ -495,6 +495,44 @@ class TestShoppingListAPI(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["repaired"], False)
 
+    def test_item_name_length_limit(self):
+        """Test that item names longer than the limit are rejected"""
+        # Limit is hard-coded to 100 in server_manager.py for tests
+        long_name = "a" * 101
+        new_item = {"name": long_name, "quantity": 1, "completed": False}
+
+        response = requests.post(f"{self.BASE_URL}/items", json=new_item, timeout=TEST_TIMEOUT)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("too long", response.json()["detail"])
+
+    def test_list_capacity_limit(self):
+        """Test that adding items beyond the list capacity is rejected"""
+        # Limit is hard-coded to 200 in server_manager.py for tests
+        # Clear items first
+        requests.delete(f"{self.BASE_URL}/items", timeout=TEST_TIMEOUT)
+
+        # We need to add 200 items. To speed this up, we could use a loop,
+        # but 200 separate POST requests might be slow.
+        # However, it's the most reliable way to test the count logic.
+        logger.info("Adding 200 items to test capacity limit (this may take a few seconds)...")
+        for i in range(200):
+            response = requests.post(
+                f"{self.BASE_URL}/items",
+                json={"name": f"Item {i+1}", "quantity": 1, "completed": False},
+                timeout=TEST_TIMEOUT,
+            )
+            if response.status_code != 201:
+                self.fail(f"Failed to add item {i+1}, status {response.status_code}")
+
+        # Try to add the 201st item
+        response = requests.post(
+            f"{self.BASE_URL}/items",
+            json={"name": "Excess Item", "quantity": 1, "completed": False},
+            timeout=TEST_TIMEOUT,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("List full", response.json()["detail"])
+
 
 if __name__ == "__main__":
     # Configure logging
