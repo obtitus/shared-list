@@ -1,4 +1,6 @@
-.PHONY: run test lint docs docker-build docker-run docker-up docker-down docker-logs docker-clean test-playwright icons deploy
+.PHONY: run test lint docs docker-build docker-run docker-up docker-down docker-logs docker-clean docker-check test-playwright icons deploy
+
+TIMEOUT := 20
 
 run:
 	uv run app/main.py
@@ -36,7 +38,7 @@ lint:
 # if docker is not running: systemctl --user start docker.service
 docker-build:
 	docker compose build
-	docker buildx history logs
+	-docker buildx history logs
 
 docker-up:
 	docker compose up -d
@@ -52,8 +54,23 @@ docker-clean:
 	docker system prune -f
 	docker volume prune -f
 
+# Loop max $(TIMEOUT) times, checking for the healthcheck defined in docker-compose.yml
+docker-check:
+	count=0; \
+	while [ "$$(docker inspect --format='{{.State.Health.Status}}' $$(docker compose ps -q backend))" != "healthy" ]; do \
+		if [ $$count -ge $(TIMEOUT) ]; then \
+			echo "FAIL: Service healthcheck timed out"; \
+			docker compose logs backend; \
+			docker compose down; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+		count=$$((count + 1)); \
+	done
+	@echo "SUCCESS: App is healthy!"
+
 docker-run:
-	docker compose up -d
+	docker compose up -d backend
 	@echo "Container started. API available at http://localhost:8000"
 	@echo "To view logs: make docker-logs"
 	@echo "To stop: make docker-down"

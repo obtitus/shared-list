@@ -2,6 +2,7 @@
 services:
   # FastAPI Backend Service
   backend:
+    image: shared-list:latest
     build:
       context: .
       dockerfile: Dockerfile
