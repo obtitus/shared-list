@@ -15,7 +15,7 @@ else
     exit 1
 fi
 
-# Function to print colored output
+# Functions to print colored output
 print_step() {
     echo -e "\n\033[1;34m[STEP]\033[0m $1"
 }

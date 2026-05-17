@@ -44,15 +44,18 @@ creating a `docker-compose.yml` file:
 services:
   shared-list:
     image: ghcr.io/obtitus/shared-list:latest
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/code/app/data
     environment:
       - HOST=0.0.0.0
       - PORT=8000
       - PYTHONPATH=/code
+      - UV_NO_DEV=1
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8000}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 ```
 
 Then run:
